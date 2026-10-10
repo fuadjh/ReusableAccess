@@ -16,8 +16,10 @@ public static class DependencyInjection
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
         services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseSqlServer(connectionString));
+            options.UseSqlServer(connectionString)
+            .UseOpenIddict<Guid>());
         services
+
     .AddIdentityCore<ApplicationUser>()
     .AddSignInManager()
     .AddEntityFrameworkStores<ApplicationDbContext>()
