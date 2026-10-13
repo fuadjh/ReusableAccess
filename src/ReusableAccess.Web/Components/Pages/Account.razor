@@ -1,0 +1,36 @@
+﻿@page "/account"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>حساب کاربری</PageTitle>
+
+<h1>وضعیت حساب</h1>
+
+@if (_isAuthenticated)
+{
+    <p>ورود به برنامه با موفقیت انجام شده است.</p>
+    <p>نام کاربر: @_userName</p>
+}
+else
+{
+    <p>نشست احراز هویت‌شده‌ای پیدا نشد.</p>
+}
+
+@code {
+    private bool _isAuthenticated;
+    private string _userName = "نام در اطلاعات هویتی موجود نیست";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authenticationState =
+            await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        var user = authenticationState.User;
+        _isAuthenticated = user.Identity?.IsAuthenticated == true;
+
+        if (!string.IsNullOrWhiteSpace(user.Identity?.Name))
+        {
+            _userName = user.Identity.Name;
+        }
+    }
+}

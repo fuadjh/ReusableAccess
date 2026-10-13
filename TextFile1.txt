@@ -1,0 +1,5 @@
+dotnet user-secrets list --project .\src\ReusableAccess.Api\ReusableAccess.Api.csproj |
+    Select-String '^DevelopmentUser:Password = '
+
+
+

@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="TextFile1.txt" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/ReusableAccess.Api/ReusableAccess.Api.csproj" />
     <Project Path="src/ReusableAccess.Application/ReusableAccess.Application.csproj" />

@@ -22,6 +22,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
     <PackageReference Include="OpenIddict.EntityFrameworkCore" Version="7.7.1" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.21" />
   
   </ItemGroup>
 

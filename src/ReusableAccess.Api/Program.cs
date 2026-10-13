@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using OpenIddict.Abstractions;
 using ReusableAccess.Infrastructure.Identity;
-
+const string apiResource = "urn:reusableaccess:api";
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -42,8 +42,10 @@ builder.Services
             .SetTokenEndpointUris("/connect/token")
             .AllowAuthorizationCodeFlow()
             .RequireProofKeyForCodeExchange();
-        options.RegisterScopes(OpenIddictConstants.Scopes.Profile);
-
+        options.RegisterScopes(
+    OpenIddictConstants.Scopes.Profile,
+    "access_api");
+        options.RegisterResources(apiResource);
         options
             .AddDevelopmentEncryptionCertificate()
             .AddDevelopmentSigningCertificate();
@@ -51,6 +53,10 @@ builder.Services
         options
             .UseAspNetCore()
             .EnableAuthorizationEndpointPassthrough();
+    }).AddValidation(options =>
+    {
+        options.UseLocalServer();
+        options.UseAspNetCore();
     });
 
 builder.Services
@@ -79,83 +85,72 @@ await using (var scope = app.Services.CreateAsyncScope())
 
     const string clientId = "ReusableAccess.Web";
 
-    if (await applicationManager.FindByClientIdAsync(clientId) is null)
+    var descriptor = new OpenIddictApplicationDescriptor
     {
-        var descriptor = new OpenIddictApplicationDescriptor
-        {
-            ClientId = clientId,
-            ClientSecret = clientSecret,
-            ClientType = OpenIddictConstants.ClientTypes.Confidential,
-            ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
-            DisplayName = "ReusableAccess Web"
-        };
+        ClientId = clientId,
+        ClientSecret = clientSecret,
+        ClientType = OpenIddictConstants.ClientTypes.Confidential,
+        ConsentType = OpenIddictConstants.ConsentTypes.Implicit,
+        DisplayName = "ReusableAccess Web"
+    };
 
-        descriptor.RedirectUris.Add(
-            new Uri("https://localhost:7136/signin-oidc"));
+    descriptor.AddResourcePermissions(apiResource);
+    descriptor.RedirectUris.Add(
+        new Uri("https://localhost:7136/signin-oidc"));
 
-        descriptor.Permissions.Add(
-            OpenIddictConstants.Permissions.Endpoints.Authorization);
-        descriptor.Permissions.Add(
-            OpenIddictConstants.Permissions.Endpoints.Token);
-        descriptor.Permissions.Add(
-            OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode);
-        descriptor.Permissions.Add(
-            OpenIddictConstants.Permissions.ResponseTypes.Code);
-        descriptor.Permissions.Add(
-            OpenIddictConstants.Permissions.Scopes.Profile);
+    descriptor.Permissions.Add(
+        OpenIddictConstants.Permissions.Endpoints.Authorization);
+    descriptor.Permissions.Add(
+        OpenIddictConstants.Permissions.Endpoints.Token);
+    descriptor.Permissions.Add(
+        OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode);
+    descriptor.Permissions.Add(
+        OpenIddictConstants.Permissions.ResponseTypes.Code);
+    descriptor.Permissions.Add(
+        OpenIddictConstants.Permissions.Scopes.Profile);
+    descriptor.Permissions.Add(
+        OpenIddictConstants.Permissions.Prefixes.Scope + "access_api");
 
-        descriptor.Requirements.Add(
-            OpenIddictConstants.Requirements.Features.ProofKeyForCodeExchange);
+    descriptor.Requirements.Add(
+        OpenIddictConstants.Requirements.Features.ProofKeyForCodeExchange);
 
+    var existingApplication =
+        await applicationManager.FindByClientIdAsync(clientId);
+
+    if (existingApplication is null)
+    {
         await applicationManager.CreateAsync(descriptor);
     }
-    if (app.Environment.IsDevelopment())
+    else
     {
-        var userName = builder.Configuration["DevelopmentUser:UserName"];
-        var nationalId = builder.Configuration["DevelopmentUser:NationalId"];
-        var displayName = builder.Configuration["DevelopmentUser:DisplayName"];
-        var password = builder.Configuration["DevelopmentUser:Password"];
+        await applicationManager.UpdateAsync(existingApplication, descriptor);
+    }
 
-        if (string.IsNullOrWhiteSpace(userName) ||
-            string.IsNullOrWhiteSpace(nationalId) ||
-            string.IsNullOrWhiteSpace(displayName) ||
-            string.IsNullOrWhiteSpace(password))
-        {
-            throw new InvalidOperationException(
-                "Development user settings are incomplete.");
-        }
+    var scopeManager = scope.ServiceProvider
+        .GetRequiredService<IOpenIddictScopeManager>();
 
-        await using var userScope = app.Services.CreateAsyncScope();
+    const string apiScopeName = "access_api";
 
-        var userManager = userScope.ServiceProvider
-            .GetRequiredService<UserManager<ApplicationUser>>();
+    var existingScope =
+        await scopeManager.FindByNameAsync(apiScopeName);
 
-        var existingUser = await userManager.FindByNameAsync(userName);
+    var scopeDescriptor = new OpenIddictScopeDescriptor
+    {
+        Name = apiScopeName,
+        DisplayName = "ReusableAccess API"
+    };
 
-        if (existingUser is null)
-        {
-            var user = new ApplicationUser
-            {
-                UserName = userName,
-                NationalId = nationalId,
-                DisplayName = displayName
-            };
+    scopeDescriptor.Resources.Add(apiResource);
 
-            var result = await userManager.CreateAsync(user, password);
-
-            if (!result.Succeeded)
-            {
-                var errors = string.Join(
-                    "; ",
-                    result.Errors.Select(error => error.Code));
-
-                throw new InvalidOperationException(
-                    $"Could not create the development user: {errors}");
-            }
-        }
+    if (existingScope is null)
+    {
+        await scopeManager.CreateAsync(scopeDescriptor);
+    }
+    else
+    {
+        await scopeManager.UpdateAsync(existingScope, scopeDescriptor);
     }
 }
-
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 

@@ -15,13 +15,15 @@ public sealed class AuthorizationController : Controller
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
-
+    private readonly IOpenIddictScopeManager _scopeManager;
     public AuthorizationController(
         UserManager<ApplicationUser> userManager,
-        SignInManager<ApplicationUser> signInManager)
+        SignInManager<ApplicationUser> signInManager,
+        IOpenIddictScopeManager scopeManager)
     {
         _userManager = userManager;
         _signInManager = signInManager;
+        _scopeManager = scopeManager;
     }
 
     [HttpGet("~/connect/authorize")]
@@ -77,7 +79,14 @@ public sealed class AuthorizationController : Controller
 
         var requestedScopes = request.GetScopes();
         identity.SetScopes(requestedScopes);
+        var resources = new List<string>();
 
+        await foreach (var resource in _scopeManager.ListResourcesAsync(requestedScopes))
+        {
+            resources.Add(resource);
+        }
+
+        identity.SetResources(resources);
         identity.SetDestinations(claim => claim.Type switch
         {
             Claims.Subject =>

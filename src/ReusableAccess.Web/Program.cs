@@ -46,6 +46,9 @@ builder.Services
         options.SaveTokens = false;
 
         options.Scope.Add("profile");
+        options.Scope.Add("access_api");
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters.NameClaimType = "name";
     });
 
 builder.Services.AddAuthorization();

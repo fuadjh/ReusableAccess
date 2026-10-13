@@ -1,6 +1,23 @@
-﻿<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+﻿<Router AppAssembly="typeof(Program).Assembly"
+        NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <AuthorizeRouteView RouteData="routeData"
+                            DefaultLayout="typeof(Layout.MainLayout)">
+            <NotAuthorized Context="authState">
+                @if (authState.User.Identity?.IsAuthenticated == true)
+                {
+                    <h1>دسترسی مجاز نیست</h1>
+                    <p>حساب شما وارد شده، اما اجازهٔ مشاهدهٔ این صفحه را ندارد.</p>
+                }
+                else
+                {
+                    <h1>ورود لازم است</h1>
+                    <p>برای مشاهدهٔ این صفحه ابتدا وارد حساب شوید.</p>
+                    <a href="/account/login">ورود به حساب</a>
+                }
+            </NotAuthorized>
+        </AuthorizeRouteView>
+
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
