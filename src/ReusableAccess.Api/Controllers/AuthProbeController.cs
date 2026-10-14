@@ -6,6 +6,7 @@ using ReusableAccess.Api.Contracts;
 namespace ReusableAccess.Api.Controllers;
 
 [ApiController]
+[Authorize(Policy = "AccessApi")]
 [Route("api/diagnostics")]
 public sealed class AuthProbeController : ControllerBase
 {

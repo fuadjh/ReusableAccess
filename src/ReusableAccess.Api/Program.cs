@@ -1,9 +1,10 @@
-using ReusableAccess.Infrastructure;
-using ReusableAccess.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using OpenIddict.Abstractions;
+using OpenIddict.Validation.AspNetCore;
+using ReusableAccess.Infrastructure;
 using ReusableAccess.Infrastructure.Identity;
+using ReusableAccess.Infrastructure.Persistence;
 const string apiResource = "urn:reusableaccess:api";
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,6 +74,19 @@ if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException(
         "Connection string 'DefaultConnection' is not configured.");
 }
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AccessApi", policy =>
+    {
+        policy
+            .AddAuthenticationSchemes(
+                OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context =>
+                context.User.HasScope("access_api"));
+    });
+});
 //====================================================================
 
 builder.Services.AddInfrastructure(connectionString);
