@@ -53,7 +53,7 @@ builder.Services
         options.UsePkce = true;
 
         // در این گام توکن‌ها را در کوکی Web ذخیره نمی‌کنیم.
-        options.SaveTokens = false;
+        options.SaveTokens = true;
 
         options.Scope.Add("profile");
         options.Scope.Add("access_api");
