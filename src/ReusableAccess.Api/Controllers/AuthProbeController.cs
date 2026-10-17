@@ -7,6 +7,7 @@ namespace ReusableAccess.Api.Controllers;
 
 [ApiController]
 [Authorize(Policy = "AccessApi")]
+[Authorize(Policy = "Permission:diagnostics.read")]
 [Route("api/diagnostics")]
 public sealed class AuthProbeController : ControllerBase
 {

@@ -1,0 +1,74 @@
+﻿@page "/access-profiles"
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>انتخاب پروفایل</PageTitle>
+
+<h1>انتخاب پروفایل فعال</h1>
+
+<p>پروفایل فعال فقط برای نشست فعلی انتخاب می‌شود؛ API همچنان هر درخواست را بررسی می‌کند.</p>
+
+<label for="access-profile-select">نقش و محدوده</label>
+<select id="access-profile-select" disabled>
+    <option>در حال دریافت پروفایل‌ها...</option>
+</select>
+
+<button id="access-profile-submit" type="button" disabled>
+    انتخاب پروفایل
+</button>
+
+<p id="access-profile-status" role="status" aria-live="polite"></p>
+
+@code {
+    private IJSObjectReference? module;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var authenticationState =
+            await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        var isAuthenticated =
+            authenticationState.User.Identity?.IsAuthenticated == true;
+
+        if (!isAuthenticated)
+        {
+            var returnUrl = Uri.EscapeDataString("/access-profiles");
+
+            Navigation.NavigateTo(
+                $"/account/login?returnUrl={returnUrl}",
+                forceLoad: true);
+
+            return;
+        }
+
+        module = await JS.InvokeAsync<IJSObjectReference>(
+            "import",
+            "/js/access-profiles.js");
+
+        await module.InvokeVoidAsync("initialize");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await module.DisposeAsync();
+        }
+        catch (Microsoft.JSInterop.JSDisconnectedException)
+        {
+            // با قطع circuit، آزادسازی ماژول JavaScript ممکن نیست.
+        }
+    }
+}

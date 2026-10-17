@@ -1,24 +1,30 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
+﻿using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using OpenIddict.Abstractions;
 using OpenIddict.Validation.AspNetCore;
 using ReusableAccess.Infrastructure;
+using ReusableAccess.Infrastructure.Authorization;
 using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using ReusableAccess.Domain.Entities;
+
 const string apiResource = "urn:reusableaccess:api";
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// ۱) سرویس‌های پایهٔ API و مستندات
 builder.Services.AddDataProtection();
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
 builder.Services.AddProblemDetails();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-// ===============connectionString =============================
+// ۲) خواندن تنظیمات اتصال و secret کلاینت
 var connectionString =
     builder.Configuration.GetConnectionString("DefaultConnection");
+
 var clientSecret =
     builder.Configuration["Authentication:OpenIddict:ClientSecret"];
 
@@ -27,6 +33,14 @@ if (string.IsNullOrWhiteSpace(clientSecret))
     throw new InvalidOperationException(
         "OpenIddict client secret is not configured.");
 }
+
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    throw new InvalidOperationException(
+        "Connection string 'DefaultConnection' is not configured.");
+}
+
+// ۳) ثبت Authorization Server و اعتبارسنجی توکن در همین API
 builder.Services
     .AddOpenIddict()
     .AddCore(options =>
@@ -43,10 +57,13 @@ builder.Services
             .SetTokenEndpointUris("/connect/token")
             .AllowAuthorizationCodeFlow()
             .RequireProofKeyForCodeExchange();
+
         options.RegisterScopes(
-    OpenIddictConstants.Scopes.Profile,
-    "access_api");
+            OpenIddictConstants.Scopes.Profile,
+            "access_api");
+
         options.RegisterResources(apiResource);
+
         options
             .AddDevelopmentEncryptionCertificate()
             .AddDevelopmentSigningCertificate();
@@ -54,12 +71,14 @@ builder.Services
         options
             .UseAspNetCore()
             .EnableAuthorizationEndpointPassthrough();
-    }).AddValidation(options =>
+    })
+    .AddValidation(options =>
     {
         options.UseLocalServer();
         options.UseAspNetCore();
     });
 
+// ۴) کوکی ورود کاربر در خود Authorization Server
 builder.Services
     .AddAuthentication()
     .AddCookie(IdentityConstants.ApplicationScheme, options =>
@@ -69,12 +88,19 @@ builder.Services
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.LoginPath = "/Account/Login";
     });
-if (string.IsNullOrWhiteSpace(connectionString))
-{
-    throw new InvalidOperationException(
-        "Connection string 'DefaultConnection' is not configured.");
-}
 
+// ۵) ثبت Infrastructure، دیتابیس و Identity
+builder.Services.AddInfrastructure(connectionString);
+
+// ۶) ثبت handler بررسی مجوزهای برنامه‌ای
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<
+    IAuthorizationHandler,
+    PermissionAuthorizationHandler>();
+
+// ۷) Policyهای API:
+// AccessApi فقط scope پروتکلی را بررسی می‌کند.
+// Permission:diagnostics.read علاوه بر scope، permission دیتابیسی را هم بررسی می‌کند.
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("AccessApi", policy =>
@@ -86,12 +112,23 @@ builder.Services.AddAuthorization(options =>
             .RequireAssertion(context =>
                 context.User.HasScope("access_api"));
     });
-});
-//====================================================================
 
-builder.Services.AddInfrastructure(connectionString);
+    options.AddPolicy("Permission:diagnostics.read", policy =>
+    {
+        policy
+            .AddAuthenticationSchemes(
+                OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context =>
+                context.User.HasScope("access_api"))
+            .AddRequirements(
+                new PermissionRequirement("diagnostics.read"));
+    });
+});
+
 var app = builder.Build();
 
+// ۸) ثبت/به‌روزرسانی کلاینت Web و scope مربوط به API در OpenIddict
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var applicationManager = scope.ServiceProvider
@@ -165,10 +202,83 @@ await using (var scope = app.Services.CreateAsyncScope())
         await scopeManager.UpdateAsync(existingScope, scopeDescriptor);
     }
 }
+
+// ۹) فقط در Development، تخصیص آزمایشی مجوز را برای کاربر موجود بساز.
+// developmentScope و userManager همین‌جا تعریف شده‌اند و بیرون از این بلوک استفاده نمی‌شوند.
+if (app.Environment.IsDevelopment())
+{
+    var developmentUserName =
+        builder.Configuration["DevelopmentUser:UserName"];
+
+    if (string.IsNullOrWhiteSpace(developmentUserName))
+    {
+        throw new InvalidOperationException(
+            "DevelopmentUser:UserName is not configured.");
+    }
+
+    await using var developmentScope =
+        app.Services.CreateAsyncScope();
+
+    var userManager = developmentScope.ServiceProvider
+        .GetRequiredService<UserManager<ApplicationUser>>();
+
+    var seededUser =
+        await userManager.FindByNameAsync(developmentUserName);
+
+    if (seededUser is null)
+    {
+        throw new InvalidOperationException(
+            "The configured development user was not found.");
+    }
+
+    await ReusableAccess.Api.DevelopmentAccessSeeder.SeedAsync(
+        developmentScope.ServiceProvider,
+        seededUser.Id);
+}
+
+// ۱۰) middlewareها و endpointها
+// فهرست نقش‌ها و محدوده‌های فعالِ تخصیص‌یافته به کاربرِ همین access token.
+// ورودی کاربر برای تعیین UserId پذیرفته نمی‌شود؛ شناسه از claim «sub» توکن می‌آید.
+app.MapGet(
+    "/api/me/access-profiles",
+    async (
+        HttpContext context,
+        ApplicationDbContext dbContext,
+        CancellationToken cancellationToken) =>
+    {
+        var subject = context.User.FindFirst("sub")?.Value;
+
+        if (!Guid.TryParse(subject, out var userId))
+        {
+            return Results.Forbid();
+        }
+
+        var profiles = await (
+            from assignment in dbContext.Set<UserRoleAssignment>()
+            join role in dbContext.Set<Role>()
+                on assignment.RoleId equals role.Id
+            join accessScope in dbContext.Set<AccessScope>()
+                on assignment.ScopeId equals accessScope.Id
+            where assignment.UserId == userId
+                  && assignment.IsEnabled
+            orderby role.Code, accessScope.Code
+            select new
+            {
+                roleCode = role.Code,
+                scopeCode = accessScope.Code
+            })
+            .ToListAsync(cancellationToken);
+
+        return Results.Ok(new
+        {
+            data = profiles,
+            message = "پروفایل‌های فعال کاربر."
+        });
+    })
+    .RequireAuthorization("AccessApi");
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();

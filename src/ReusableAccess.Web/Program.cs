@@ -5,7 +5,13 @@ using Microsoft.AspNetCore.Components.Authorization;
 using ReusableAccess.Web.Components;
 using ReusableAccess.Web.Infrastructure;
 using System.Net.Http.Headers;
+
+using System.Text.Json;
+using Microsoft.AspNetCore.Antiforgery;
+
 var builder = WebApplication.CreateBuilder(args);
+const string ActiveRoleTicketKey = "ReusableAccess.ActiveRole";
+const string ActiveScopeTicketKey = "ReusableAccess.ActiveScope";
 var clientSecret =
     builder.Configuration["Authentication:OpenIddict:ClientSecret"];
 
@@ -22,8 +28,13 @@ builder.Services
         CookieAuthenticationDefaults.AuthenticationScheme)
     .Configure<ITicketStore>((options, ticketStore) =>
     {
+
         options.SessionStore = ticketStore;
     });
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-CSRF-TOKEN";
+});
 builder.Services
     .AddAuthentication(options =>
     {
@@ -85,74 +96,350 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/bff"),
+    branch =>
+    {
+        branch.UseStatusCodePagesWithReExecute(
+            "/not-found",
+            createScopeForStatusCodePages: true);
+    });
+
 app.UseHttpsRedirection();
 app.UseAuthentication();
 
 app.UseAuthorization();
-app.MapGet("/bff/diagnostics/protected", async (
-    HttpContext context,
-    IHttpClientFactory httpClientFactory) =>
-{
-    var accessToken = await context.GetTokenAsync("access_token");
-
-    if (string.IsNullOrWhiteSpace(accessToken))
+// توکن ضد-CSRF را برای درخواست تغییر پروفایل به مرورگر می‌دهد.
+// این endpoint توکن دسترسی API را برنمی‌گرداند.
+app.MapGet(
+    "/bff/antiforgery-token",
+    (HttpContext context, IAntiforgery antiforgery) =>
     {
-        return Results.Problem(
-            statusCode: StatusCodes.Status401Unauthorized,
-            title: "Access token is not available in the server-side ticket.");
-    }
+        var tokens = antiforgery.GetAndStoreTokens(context);
 
-    var client = httpClientFactory.CreateClient("Api");
+        return Results.Ok(new
+        {
+            requestToken = tokens.RequestToken
+        });
+    })
+    .RequireAuthorization();
 
-    using var request = new HttpRequestMessage(
-        HttpMethod.Get,
-        "api/diagnostics/protected");
 
-    request.Headers.Authorization =
-        new AuthenticationHeaderValue("Bearer", accessToken);
-
-    try
+// انتخاب پروفایل مجاز و ذخیرهٔ آن در ticket سمت‌سرور.
+app.MapPost(
+    "/bff/access-profile/select",
+    async (
+        HttpContext context,
+        IHttpClientFactory httpClientFactory,
+        IAntiforgery antiforgery,
+        CancellationToken cancellationToken) =>
     {
-        using var response = await client.SendAsync(
-            request,
-            context.RequestAborted);
+        app.Logger.LogWarning("BFF_PROFILE_SELECT_HANDLER_REACHED");
+        // چون این درخواست با cookie احراز هویت انجام می‌شود،
+        // درخواست باید توکن ضد-CSRF معتبر داشته باشد.
+        try
+        {
+            await antiforgery.ValidateRequestAsync(context);
+        }
+        catch (AntiforgeryValidationException)
+        {
+            return Results.BadRequest(
+                "درخواست ضد-CSRF معتبر نیست؛ صفحه را تازه‌سازی و دوباره امتحان کن.");
+        }
 
-        var body = await response.Content.ReadAsStringAsync(
-            context.RequestAborted);
+        AccessProfileSelectionRequest? selection;
 
-        var contentType = response.Content.Headers.ContentType?.ToString()
-            ?? "application/json";
+        try
+        {
+            selection =
+                await context.Request.ReadFromJsonAsync<AccessProfileSelectionRequest>(
+                    cancellationToken);
+        }
+        catch (JsonException)
+        {
+            return Results.BadRequest("بدنهٔ درخواست معتبر نیست.");
+        }
 
-        return Results.Content(
-            body,
-            contentType,
-            statusCode: (int)response.StatusCode);
-    }
-    catch (HttpRequestException)
+        if (selection is null ||
+            string.IsNullOrWhiteSpace(selection.RoleCode) ||
+            string.IsNullOrWhiteSpace(selection.ScopeCode))
+        {
+            return Results.BadRequest("roleCode و scopeCode الزامی هستند.");
+        }
+
+        var authentication = await context.AuthenticateAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme);
+
+        if (!authentication.Succeeded ||
+            authentication.Principal is null ||
+            authentication.Properties is null)
+        {
+            return Results.Unauthorized();
+        }
+
+        var accessToken = await context.GetTokenAsync("access_token");
+
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "توکن دسترسی در ticket سمت‌سرور موجود نیست.");
+        }
+
+        try
+        {
+            // از API می‌پرسیم این کاربر واقعاً چه پروفایل‌هایی دارد.
+            // نقش و محدودهٔ ارسالی از Web به‌تنهایی مجوز ایجاد نمی‌کند.
+            var apiClient = httpClientFactory.CreateClient("Api");
+
+            using var profilesRequest = new HttpRequestMessage(
+                HttpMethod.Get,
+                "api/me/access-profiles");
+
+            profilesRequest.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", accessToken);
+
+            using var profilesResponse = await apiClient.SendAsync(
+                profilesRequest,
+                cancellationToken);
+
+            if (!profilesResponse.IsSuccessStatusCode)
+            {
+                return Results.StatusCode(
+                    (int)profilesResponse.StatusCode);
+            }
+
+            await using var responseStream =
+                await profilesResponse.Content.ReadAsStreamAsync(
+                    cancellationToken);
+
+            using var json = await JsonDocument.ParseAsync(
+                responseStream,
+                cancellationToken: cancellationToken);
+
+            var data = json.RootElement.GetProperty("data");
+
+            var profileIsAssigned = data
+                .EnumerateArray()
+                .Any(profile =>
+                    string.Equals(
+                        profile.GetProperty("roleCode").GetString(),
+                        selection.RoleCode,
+                        StringComparison.Ordinal) &&
+                    string.Equals(
+                        profile.GetProperty("scopeCode").GetString(),
+                        selection.ScopeCode,
+                        StringComparison.Ordinal));
+
+            if (!profileIsAssigned)
+            {
+                return Results.StatusCode(StatusCodes.Status403Forbidden);
+            }
+
+            // مقادیر در AuthenticationProperties ذخیره می‌شوند.
+            // چون Cookie به ITicketStore وصل است، ticket سمت‌سرور به‌روزرسانی می‌شود.
+            authentication.Properties.Items[ActiveRoleTicketKey] =
+                selection.RoleCode;
+
+            authentication.Properties.Items[ActiveScopeTicketKey] =
+                selection.ScopeCode;
+
+            await context.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                authentication.Principal,
+                authentication.Properties);
+
+            return Results.Ok(new
+            {
+                roleCode = selection.RoleCode,
+                scopeCode = selection.ScopeCode,
+                message = "پروفایل فعال ذخیره شد."
+            });
+        }
+        catch (HttpRequestException)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status502BadGateway,
+                title: "ارتباط با API برقرار نشد.");
+        }
+        catch (JsonException)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status502BadGateway,
+                title: "پاسخ فهرست پروفایل‌ها از API قابل خواندن نبود.");
+        }
+    })
+    .RequireAuthorization();
+
+
+// endpoint تشخیصی اکنون پروفایل را از ticket سمت‌سرور می‌خواند،
+// نه از query string مرورگر.
+app.MapGet(
+    "/bff/diagnostics/protected",
+    async (
+        HttpContext context,
+        IHttpClientFactory httpClientFactory,
+        CancellationToken cancellationToken) =>
     {
-        return Results.Problem(
-            statusCode: StatusCodes.Status502BadGateway,
-            title: "The API could not be reached.");
-    }
-})
-.RequireAuthorization();
+        var authentication = await context.AuthenticateAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme);
+
+        if (!authentication.Succeeded ||
+            authentication.Properties is null)
+        {
+            return Results.Unauthorized();
+        }
+
+        var accessToken = await context.GetTokenAsync("access_token");
+
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "توکن دسترسی در ticket سمت‌سرور موجود نیست.");
+        }
+
+        authentication.Properties.Items.TryGetValue(
+      ActiveRoleTicketKey,
+      out var roleCode);
+
+        authentication.Properties.Items.TryGetValue(
+            ActiveScopeTicketKey,
+            out var scopeCode);
+
+        if (string.IsNullOrWhiteSpace(roleCode) ||
+            string.IsNullOrWhiteSpace(scopeCode))
+        {
+            return Results.Conflict(
+                "ابتدا از صفحهٔ /access-profiles یک پروفایل فعال انتخاب کن.");
+        }
+
+        var client = httpClientFactory.CreateClient("Api");
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "api/diagnostics/protected");
+
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken);
+
+        request.Headers.TryAddWithoutValidation(
+            "X-Active-Role",
+            roleCode);
+
+        request.Headers.TryAddWithoutValidation(
+            "X-Active-Scope",
+            scopeCode);
+
+        try
+        {
+            using var response = await client.SendAsync(
+                request,
+                cancellationToken);
+
+            var body = await response.Content.ReadAsStringAsync(
+                cancellationToken);
+
+            var contentType =
+                response.Content.Headers.ContentType?.ToString()
+                ?? "application/json";
+
+            return Results.Content(
+                body,
+                contentType,
+                statusCode: (int)response.StatusCode);
+        }
+        catch (HttpRequestException)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status502BadGateway,
+                title: "ارتباط با API برقرار نشد.");
+        }
+    })
+    .RequireAuthorization();
+// توکن فقط در سمت سرور خوانده و به API فرستاده می‌شود؛
+// پاسخ BFF شامل خود توکن نیست.
+app.MapGet(
+    "/bff/access-profiles",
+    async (
+        HttpContext context,
+        IHttpClientFactory httpClientFactory,
+        CancellationToken cancellationToken) =>
+    {
+        var accessToken = await context.GetTokenAsync("access_token");
+
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "Access token is not available in the server-side ticket.");
+        }
+
+        var client = httpClientFactory.CreateClient("Api");
+
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            "api/me/access-profiles");
+
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken);
+
+        try
+        {
+            using var response = await client.SendAsync(
+                request,
+                cancellationToken);
+
+            var body = await response.Content.ReadAsStringAsync(
+                cancellationToken);
+
+            var contentType =
+                response.Content.Headers.ContentType?.ToString()
+                ?? "application/json";
+
+            return Results.Content(
+                body,
+                contentType,
+                statusCode: (int)response.StatusCode);
+        }
+        catch (HttpRequestException)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status502BadGateway,
+                title: "The API could not be reached.");
+        }
+    })
+    .RequireAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
-app.MapGet("/account/login", () =>
-{
-    var properties = new AuthenticationProperties
+app.MapGet(
+    "/account/login",
+    (string? returnUrl) =>
     {
-        RedirectUri = "/"
-    };
+        var safeReturnUrl =
+            !string.IsNullOrWhiteSpace(returnUrl) &&
+            returnUrl.StartsWith("/", StringComparison.Ordinal) &&
+            !returnUrl.StartsWith("//", StringComparison.Ordinal) &&
+            !returnUrl.Contains('\\')
+                ? returnUrl
+                : "/";
 
-    return Results.Challenge(
-        properties,
-        new[] { OpenIdConnectDefaults.AuthenticationScheme });
-})
-.AllowAnonymous();
+        var properties = new AuthenticationProperties
+        {
+            RedirectUri = safeReturnUrl
+        };
+
+        return Results.Challenge(
+            properties,
+            new[] { OpenIdConnectDefaults.AuthenticationScheme });
+    })
+    .AllowAnonymous();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+internal sealed record AccessProfileSelectionRequest(
+    string RoleCode,
+    string ScopeCode);
