@@ -21,6 +21,8 @@ if (string.IsNullOrWhiteSpace(clientSecret))
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSingleton<ActiveAccessProfileStore>();
 builder.Services.AddScoped<BffApiClient>();
+builder.Services.AddScoped<AccessProfileSelectionService>();
+
 builder.Services.AddSingleton<ITicketStore, DistributedCacheTicketStore>();
 
 builder.Services
@@ -129,8 +131,7 @@ app.MapPost(
     async (
         HttpContext context,
         IAntiforgery antiforgery,
-        ActiveAccessProfileStore activeProfileStore,
-        BffApiClient bffApiClient,
+        AccessProfileSelectionService selectionService,
         CancellationToken cancellationToken) =>
     {
         try
@@ -160,102 +161,16 @@ app.MapPost(
             string.IsNullOrWhiteSpace(selection.RoleCode) ||
             string.IsNullOrWhiteSpace(selection.ScopeCode))
         {
-            return Results.BadRequest("roleCode و scopeCode الزامی هستند.");
+            return Results.BadRequest(
+                "roleCode و scopeCode الزامی هستند.");
         }
 
-        var authentication = await context.AuthenticateAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme);
-
-        if (!authentication.Succeeded ||
-            authentication.Principal is null ||
-            authentication.Properties is null)
-        {
-            return Results.Unauthorized();
-        }
-
-        var accessToken = await context.GetTokenAsync("access_token");
-
-        if (string.IsNullOrWhiteSpace(accessToken))
-        {
-            return Results.Problem(
-                statusCode: StatusCodes.Status401Unauthorized,
-                title: "توکن دسترسی در ticket سمت‌سرور موجود نیست.");
-        }
-
-        try
-        {
-            using var profilesResponse = await bffApiClient.GetAsync(
-                "api/me/access-profiles",
-                accessToken,
-                activeProfile: null,
-                cancellationToken);
-
-            if (!profilesResponse.IsSuccessStatusCode)
-            {
-                return Results.StatusCode(
-                    (int)profilesResponse.StatusCode);
-            }
-
-            await using var responseStream =
-                await profilesResponse.Content.ReadAsStreamAsync(
-                    cancellationToken);
-
-            using var json = await JsonDocument.ParseAsync(
-                responseStream,
-                cancellationToken: cancellationToken);
-
-            var data = json.RootElement.GetProperty("data");
-
-            var profileIsAssigned = data
-                .EnumerateArray()
-                .Any(profile =>
-                    string.Equals(
-                        profile.GetProperty("roleCode").GetString(),
-                        selection.RoleCode,
-                        StringComparison.Ordinal) &&
-                    string.Equals(
-                        profile.GetProperty("scopeCode").GetString(),
-                        selection.ScopeCode,
-                        StringComparison.Ordinal));
-
-            if (!profileIsAssigned)
-            {
-                return Results.StatusCode(
-                    StatusCodes.Status403Forbidden);
-            }
-
-            activeProfileStore.Set(
-                authentication.Properties,
-                selection.RoleCode,
-                selection.ScopeCode);
-
-            await context.SignInAsync(
-                CookieAuthenticationDefaults.AuthenticationScheme,
-                authentication.Principal,
-                authentication.Properties);
-
-            return Results.Ok(new
-            {
-                roleCode = selection.RoleCode,
-                scopeCode = selection.ScopeCode,
-                message = "پروفایل فعال ذخیره شد."
-            });
-        }
-        catch (HttpRequestException)
-        {
-            return Results.Problem(
-                statusCode: StatusCodes.Status502BadGateway,
-                title: "ارتباط با API برقرار نشد.");
-        }
-        catch (JsonException)
-        {
-            return Results.Problem(
-                statusCode: StatusCodes.Status502BadGateway,
-                title: "پاسخ فهرست پروفایل‌ها از API قابل خواندن نبود.");
-        }
+        return await selectionService.SelectAsync(
+            context,
+            selection,
+            cancellationToken);
     })
     .RequireAuthorization();
-
 app.MapGet(
     "/bff/diagnostics/protected",
     async (
@@ -396,6 +311,6 @@ app.MapRazorComponents<App>()
 
 app.Run();
 
-internal sealed record AccessProfileSelectionRequest(
+public sealed record AccessProfileSelectionRequest(
     string RoleCode,
     string ScopeCode);
