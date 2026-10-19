@@ -124,6 +124,17 @@ builder.Services.AddAuthorization(options =>
             .AddRequirements(
                 new PermissionRequirement("diagnostics.read"));
     });
+    options.AddPolicy("Permission:workitems.read", policy =>
+    {
+        policy
+            .AddAuthenticationSchemes(
+                OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context =>
+                context.User.HasScope("access_api"))
+            .AddRequirements(
+                new PermissionRequirement("workitems.read"));
+    });
 });
 
 var app = builder.Build();
@@ -276,6 +287,52 @@ app.MapGet(
         });
     })
     .RequireAuthorization("AccessApi");
+app.MapGet(
+    "/api/work-items",
+    async (
+        HttpContext context,
+        ApplicationDbContext dbContext,
+        CancellationToken cancellationToken) =>
+    {
+        var scopeCode =
+            context.Request.Headers["X-Active-Scope"].ToString();
+
+        if (string.IsNullOrWhiteSpace(scopeCode))
+        {
+            return Results.BadRequest("X-Active-Scope الزامی است.");
+        }
+
+        var scopeId = await dbContext.Set<AccessScope>()
+            .Where(scope => scope.Code == scopeCode)
+            .Select(scope => (Guid?)scope.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (!scopeId.HasValue)
+        {
+            return Results.Forbid();
+        }
+
+        var activeScopeId = scopeId.Value;
+
+        var items = await dbContext.Set<WorkItem>()
+            .AsNoTracking()
+            .Where(item => item.ScopeId == activeScopeId)
+            .OrderBy(item => item.Title)
+            .Select(item => new
+            {
+                item.Id,
+                item.Title,
+                item.Status
+            })
+            .ToListAsync(cancellationToken);
+
+        return Results.Ok(new
+        {
+            data = items,
+            message = "موارد کاری محدودهٔ فعال."
+        });
+    })
+    .RequireAuthorization("Permission:workitems.read");
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 

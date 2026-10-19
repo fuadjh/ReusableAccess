@@ -14,6 +14,20 @@ public static class DevelopmentAccessSeeder
         var db = services.GetRequiredService<ApplicationDbContext>();
 
         const string permissionKey = "diagnostics.read";
+        const string workItemsPermissionKey = "workitems.read";
+
+        var workItemsPermission = await db.Set<Permission>()
+            .SingleOrDefaultAsync(
+                item => item.Key == workItemsPermissionKey);
+
+        if (workItemsPermission is null)
+        {
+            workItemsPermission = new Permission(
+                workItemsPermissionKey,
+                "خواندن موارد کاری در محدودهٔ مجاز");
+
+            db.Set<Permission>().Add(workItemsPermission);
+        }
 
         var permission = await db.Set<Permission>()
             .SingleOrDefaultAsync(item => item.Key == permissionKey);
@@ -52,7 +66,8 @@ public static class DevelopmentAccessSeeder
 
         clinicReaderRole.AddPermission(permission);
         hseReaderRole.AddPermission(permission);
-
+        clinicReaderRole.AddPermission(workItemsPermission);
+        hseReaderRole.AddPermission(workItemsPermission);
         await db.SaveChangesAsync();
 
         // هر پروفایل تخصیص دقیق و مستقل دارد؛ ارث‌بری بین محدوده‌ها نداریم.
@@ -67,6 +82,17 @@ public static class DevelopmentAccessSeeder
             userId,
             hseReaderRole.Id,
             hse.Id);
+        await EnsureWorkItemAsync(
+    db,
+    clinic1.Id,
+    "پیگیری معاینه دوره‌ای",
+    "Open");
+
+        await EnsureWorkItemAsync(
+            db,
+            hse.Id,
+            "بازرسی تجهیزات ایمنی",
+            "Open");
 
         await db.SaveChangesAsync();
     }
@@ -131,5 +157,24 @@ public static class DevelopmentAccessSeeder
         }
 
         assignment.Enable();
+    }
+    private static async Task EnsureWorkItemAsync(
+    ApplicationDbContext db,
+    Guid scopeId,
+    string title,
+    string status)
+    {
+        var exists = await db.Set<WorkItem>()
+            .AnyAsync(item =>
+                item.ScopeId == scopeId &&
+                item.Title == title);
+
+        if (exists)
+        {
+            return;
+        }
+
+        db.Set<WorkItem>().Add(
+            new WorkItem(scopeId, title, status));
     }
 }

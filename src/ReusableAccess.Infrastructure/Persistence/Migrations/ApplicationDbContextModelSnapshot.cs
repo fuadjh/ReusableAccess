@@ -419,6 +419,32 @@ namespace ReusableAccess.Infrastructure.Persistence.Migrations
                     b.ToTable("UserRoleAssignments", (string)null);
                 });
 
+            modelBuilder.Entity("ReusableAccess.Domain.Entities.WorkItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ScopeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScopeId");
+
+                    b.ToTable("WorkItems", (string)null);
+                });
+
             modelBuilder.Entity("ReusableAccess.Infrastructure.Identity.ApplicationUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -589,6 +615,15 @@ namespace ReusableAccess.Infrastructure.Persistence.Migrations
                     b.HasOne("ReusableAccess.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ReusableAccess.Domain.Entities.WorkItem", b =>
+                {
+                    b.HasOne("ReusableAccess.Domain.Entities.AccessScope", null)
+                        .WithMany()
+                        .HasForeignKey("ScopeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
