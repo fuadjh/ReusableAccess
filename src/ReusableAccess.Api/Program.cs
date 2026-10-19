@@ -9,6 +9,8 @@ using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Domain.Entities;
+using ReusableAccess.Api.Endpoints;
+using ReusableAccess.Api.Authorization;
 
 const string apiResource = "urn:reusableaccess:api";
 
@@ -92,11 +94,7 @@ builder.Services
 // ۵) ثبت Infrastructure، دیتابیس و Identity
 builder.Services.AddInfrastructure(connectionString);
 
-// ۶) ثبت handler بررسی مجوزهای برنامه‌ای
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<
-    IAuthorizationHandler,
-    PermissionAuthorizationHandler>();
+builder.Services.AddReusableAccessAuthorization();
 
 // ۷) Policyهای API:
 // AccessApi فقط scope پروتکلی را بررسی می‌کند.
@@ -287,52 +285,7 @@ app.MapGet(
         });
     })
     .RequireAuthorization("AccessApi");
-app.MapGet(
-    "/api/work-items",
-    async (
-        HttpContext context,
-        ApplicationDbContext dbContext,
-        CancellationToken cancellationToken) =>
-    {
-        var scopeCode =
-            context.Request.Headers["X-Active-Scope"].ToString();
-
-        if (string.IsNullOrWhiteSpace(scopeCode))
-        {
-            return Results.BadRequest("X-Active-Scope الزامی است.");
-        }
-
-        var scopeId = await dbContext.Set<AccessScope>()
-            .Where(scope => scope.Code == scopeCode)
-            .Select(scope => (Guid?)scope.Id)
-            .SingleOrDefaultAsync(cancellationToken);
-
-        if (!scopeId.HasValue)
-        {
-            return Results.Forbid();
-        }
-
-        var activeScopeId = scopeId.Value;
-
-        var items = await dbContext.Set<WorkItem>()
-            .AsNoTracking()
-            .Where(item => item.ScopeId == activeScopeId)
-            .OrderBy(item => item.Title)
-            .Select(item => new
-            {
-                item.Id,
-                item.Title,
-                item.Status
-            })
-            .ToListAsync(cancellationToken);
-
-        return Results.Ok(new
-        {
-            data = items,
-            message = "موارد کاری محدودهٔ فعال."
-        });
-    })
-    .RequireAuthorization("Permission:workitems.read");
+app.MapWorkItemsEndpoint();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 

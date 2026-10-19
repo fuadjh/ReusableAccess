@@ -10,6 +10,8 @@
     <Project Path="src/ReusableAccess.Web/ReusableAccess.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/ReusableAccess.Api.IntegrationTests/ReusableAccess.Api.IntegrationTests.csproj" />
     <Project Path="tests/ReusableAccess.Domain.Tests/ReusableAccess.Domain.Tests.csproj" />
+    <Project Path="tests/ReusableAccess.Infrastructure.Tests/ReusableAccess.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>
