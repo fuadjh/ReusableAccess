@@ -389,6 +389,63 @@ namespace ReusableAccess.Infrastructure.Persistence.Migrations
                     b.ToTable("RolePermissions", (string)null);
                 });
 
+            modelBuilder.Entity("ReusableAccess.Domain.Entities.UserAccessBundle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("ScopeSelectionMode")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "IsEnabled");
+
+                    b.ToTable("UserAccessBundles", (string)null);
+                });
+
+            modelBuilder.Entity("ReusableAccess.Domain.Entities.UserAccessBundleRole", b =>
+                {
+                    b.Property<Guid>("BundleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("BundleId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("UserAccessBundleRoles", (string)null);
+                });
+
+            modelBuilder.Entity("ReusableAccess.Domain.Entities.UserAccessBundleScope", b =>
+                {
+                    b.Property<Guid>("BundleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ScopeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("BundleId", "ScopeId");
+
+                    b.HasIndex("ScopeId");
+
+                    b.ToTable("UserAccessBundleScopes", (string)null);
+                });
+
             modelBuilder.Entity("ReusableAccess.Domain.Entities.UserRoleAssignment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -598,6 +655,45 @@ namespace ReusableAccess.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ReusableAccess.Domain.Entities.UserAccessBundle", b =>
+                {
+                    b.HasOne("ReusableAccess.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ReusableAccess.Domain.Entities.UserAccessBundleRole", b =>
+                {
+                    b.HasOne("ReusableAccess.Domain.Entities.UserAccessBundle", null)
+                        .WithMany("Roles")
+                        .HasForeignKey("BundleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ReusableAccess.Domain.Entities.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("ReusableAccess.Domain.Entities.UserAccessBundleScope", b =>
+                {
+                    b.HasOne("ReusableAccess.Domain.Entities.UserAccessBundle", null)
+                        .WithMany("Scopes")
+                        .HasForeignKey("BundleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ReusableAccess.Domain.Entities.AccessScope", null)
+                        .WithMany()
+                        .HasForeignKey("ScopeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("ReusableAccess.Domain.Entities.UserRoleAssignment", b =>
                 {
                     b.HasOne("ReusableAccess.Domain.Entities.Role", null)
@@ -643,6 +739,13 @@ namespace ReusableAccess.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ReusableAccess.Domain.Entities.Role", b =>
                 {
                     b.Navigation("Permissions");
+                });
+
+            modelBuilder.Entity("ReusableAccess.Domain.Entities.UserAccessBundle", b =>
+                {
+                    b.Navigation("Roles");
+
+                    b.Navigation("Scopes");
                 });
 #pragma warning restore 612, 618
         }

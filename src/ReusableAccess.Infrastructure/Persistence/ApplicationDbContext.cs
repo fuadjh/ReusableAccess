@@ -26,6 +26,9 @@ public sealed class ApplicationDbContext
         modelBuilder.ApplyConfiguration(new AccessScopeConfiguration());
         modelBuilder.ApplyConfiguration(new UserRoleAssignmentConfiguration());
         modelBuilder.ApplyConfiguration(new WorkItemConfiguration());
+        modelBuilder.ApplyConfiguration(new UserAccessBundleConfiguration());
+        modelBuilder.ApplyConfiguration(new UserAccessBundleRoleConfiguration());
+        modelBuilder.ApplyConfiguration(new UserAccessBundleScopeConfiguration());
         //=======================================================
         modelBuilder.Entity<ApplicationUser>(entity =>
         {
