@@ -54,20 +54,18 @@ public sealed class AccessProfileSelectionService(
                 responseStream,
                 cancellationToken: cancellationToken);
 
-            if (!IsAssignedProfile(
-                    json.RootElement,
-                    selection.RoleCode,
-                    selection.ScopeCode))
+            if (!IsAssignedProfile(json.RootElement, selection))
             {
                 return Results.StatusCode(
                     StatusCodes.Status403Forbidden);
             }
 
-            // پروفایل فقط پس از تأیید assignment در ticket ذخیره می‌شود.
             activeProfileStore.Set(
                 authentication.Properties,
+                selection.BundleId,
                 selection.RoleCode,
-                selection.ScopeCode);
+                selection.ScopeCode,
+                selection.ScopeMode);
 
             await context.SignInAsync(
                 CookieAuthenticationDefaults.AuthenticationScheme,
@@ -76,8 +74,10 @@ public sealed class AccessProfileSelectionService(
 
             return Results.Ok(new
             {
+                bundleId = selection.BundleId,
                 roleCode = selection.RoleCode,
                 scopeCode = selection.ScopeCode,
+                scopeMode = selection.ScopeMode,
                 message = "پروفایل فعال ذخیره شد."
             });
         }
@@ -97,8 +97,7 @@ public sealed class AccessProfileSelectionService(
 
     private static bool IsAssignedProfile(
         JsonElement root,
-        string roleCode,
-        string scopeCode)
+        AccessProfileSelectionRequest selection)
     {
         if (!root.TryGetProperty("data", out var data) ||
             data.ValueKind != JsonValueKind.Array)
@@ -110,22 +109,42 @@ public sealed class AccessProfileSelectionService(
         foreach (var profile in data.EnumerateArray())
         {
             if (profile.ValueKind != JsonValueKind.Object ||
+                !profile.TryGetProperty("bundleId", out var bundleElement) ||
+                bundleElement.ValueKind != JsonValueKind.String ||
                 !profile.TryGetProperty("roleCode", out var roleElement) ||
-                !profile.TryGetProperty("scopeCode", out var scopeElement) ||
                 roleElement.ValueKind != JsonValueKind.String ||
-                scopeElement.ValueKind != JsonValueKind.String)
+                !profile.TryGetProperty("scopeMode", out var modeElement) ||
+                modeElement.ValueKind != JsonValueKind.String ||
+                !profile.TryGetProperty("scopeCode", out var scopeElement))
             {
                 throw new JsonException(
                     "ساختار یکی از پروفایل‌های پاسخ API معتبر نیست.");
             }
 
-            if (string.Equals(
-                    roleElement.GetString(),
+            var bundleId = bundleElement.GetGuid();
+            var roleCode = roleElement.GetString();
+            var scopeMode = modeElement.GetString();
+
+            string? scopeCode = scopeElement.ValueKind switch
+            {
+                JsonValueKind.Null => null,
+                JsonValueKind.String => scopeElement.GetString(),
+                _ => throw new JsonException(
+                    "scopeCode باید رشته یا null باشد.")
+            };
+
+            if (bundleId == selection.BundleId &&
+                string.Equals(
                     roleCode,
+                    selection.RoleCode,
                     StringComparison.Ordinal) &&
                 string.Equals(
-                    scopeElement.GetString(),
+                    scopeMode,
+                    selection.ScopeMode,
+                    StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(
                     scopeCode,
+                    selection.ScopeCode,
                     StringComparison.Ordinal))
             {
                 return true;

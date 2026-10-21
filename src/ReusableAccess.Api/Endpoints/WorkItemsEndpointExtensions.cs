@@ -1,12 +1,15 @@
-﻿using Microsoft.AspNetCore.Routing;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Domain.Entities;
+using ReusableAccess.Domain.Enums;
 using ReusableAccess.Infrastructure.Persistence;
 
 namespace ReusableAccess.Api.Endpoints;
 
 public static class WorkItemsEndpointExtensions
 {
+    private const string ActiveScopeHeader = "X-Active-Scope";
+    private const string ActiveScopeModeHeader = "X-Active-Scope-Mode";
+
     public static IEndpointRouteBuilder MapWorkItemsEndpoint(
         this IEndpointRouteBuilder endpoints)
     {
@@ -17,29 +20,44 @@ public static class WorkItemsEndpointExtensions
                 ApplicationDbContext dbContext,
                 CancellationToken cancellationToken) =>
             {
-                var scopeCode =
-                    context.Request.Headers["X-Active-Scope"].ToString();
+                var modeValue = context.Request.Headers[
+                    ActiveScopeModeHeader].ToString();
 
-                if (string.IsNullOrWhiteSpace(scopeCode))
+                if (!TryParseScopeMode(modeValue, out var scopeMode))
                 {
                     return Results.BadRequest(
-                        "X-Active-Scope الزامی است.");
+                        "X-Active-Scope-Mode باید selected یا all باشد.");
                 }
 
-                var scopeId = await dbContext.Set<AccessScope>()
-                    .Where(scope => scope.Code == scopeCode)
-                    .Select(scope => (Guid?)scope.Id)
-                    .SingleOrDefaultAsync(cancellationToken);
+                var query = dbContext.Set<WorkItem>()
+                    .AsNoTracking();
 
-                if (!scopeId.HasValue)
+                if (scopeMode == ScopeSelectionMode.Selected)
                 {
-                    return Results.Forbid();
+                    var scopeCode = context.Request.Headers[
+                        ActiveScopeHeader].ToString();
+
+                    if (string.IsNullOrWhiteSpace(scopeCode))
+                    {
+                        return Results.BadRequest(
+                            "X-Active-Scope الزامی است.");
+                    }
+
+                    var scopeId = await dbContext.Set<AccessScope>()
+                        .Where(scope => scope.Code == scopeCode)
+                        .Select(scope => (Guid?)scope.Id)
+                        .SingleOrDefaultAsync(cancellationToken);
+
+                    if (!scopeId.HasValue)
+                    {
+                        return Results.Forbid();
+                    }
+
+                    query = query.Where(
+                        item => item.ScopeId == scopeId.Value);
                 }
 
-                var activeScopeId = scopeId.Value;
-                var items = await dbContext.Set<WorkItem>()
-                    .AsNoTracking()
-                    .Where(item => item.ScopeId == activeScopeId)
+                var items = await query
                     .OrderBy(item => item.Title)
                     .Select(item => new
                     {
@@ -49,14 +67,45 @@ public static class WorkItemsEndpointExtensions
                     })
                     .ToListAsync(cancellationToken);
 
+                var message = scopeMode == ScopeSelectionMode.All
+                    ? "موارد کاری همهٔ محدوده‌های مجاز."
+                    : "موارد کاری محدودهٔ فعال.";
+
                 return Results.Ok(new
                 {
                     data = items,
-                    message = "موارد کاری محدودهٔ فعال."
+                    message
                 });
             })
             .RequireAuthorization("Permission:workitems.read");
 
         return endpoints;
+    }
+
+    private static bool TryParseScopeMode(
+        string? value,
+        out ScopeSelectionMode scopeMode)
+    {
+        if (string.IsNullOrWhiteSpace(value) ||
+            string.Equals(
+                value.Trim(),
+                "selected",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            scopeMode = ScopeSelectionMode.Selected;
+            return true;
+        }
+
+        if (string.Equals(
+            value.Trim(),
+            "all",
+            StringComparison.OrdinalIgnoreCase))
+        {
+            scopeMode = ScopeSelectionMode.All;
+            return true;
+        }
+
+        scopeMode = default;
+        return false;
     }
 }

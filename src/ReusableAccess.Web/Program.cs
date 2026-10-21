@@ -158,11 +158,30 @@ app.MapPost(
         }
 
         if (selection is null ||
-            string.IsNullOrWhiteSpace(selection.RoleCode) ||
-            string.IsNullOrWhiteSpace(selection.ScopeCode))
+    selection.BundleId == Guid.Empty ||
+    string.IsNullOrWhiteSpace(selection.RoleCode) ||
+    string.IsNullOrWhiteSpace(selection.ScopeMode) ||
+    (string.Equals(
+         selection.ScopeMode,
+         "selected",
+         StringComparison.OrdinalIgnoreCase) &&
+     string.IsNullOrWhiteSpace(selection.ScopeCode)) ||
+    (string.Equals(
+         selection.ScopeMode,
+         "all",
+         StringComparison.OrdinalIgnoreCase) &&
+     !string.IsNullOrWhiteSpace(selection.ScopeCode)) ||
+    (!string.Equals(
+         selection.ScopeMode,
+         "selected",
+         StringComparison.OrdinalIgnoreCase) &&
+     !string.Equals(
+         selection.ScopeMode,
+         "all",
+         StringComparison.OrdinalIgnoreCase)))
         {
             return Results.BadRequest(
-                "roleCode و scopeCode الزامی هستند.");
+    "bundleId، roleCode و scopeMode معتبر الزامی هستند؛ scopeCode در حالت selected لازم است.");
         }
 
         return await selectionService.SelectAsync(
@@ -311,6 +330,9 @@ app.MapRazorComponents<App>()
 
 app.Run();
 
+
 public sealed record AccessProfileSelectionRequest(
+    Guid BundleId,
     string RoleCode,
-    string ScopeCode);
+    string? ScopeCode,
+    string ScopeMode);

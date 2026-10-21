@@ -248,43 +248,7 @@ if (app.Environment.IsDevelopment())
 // ۱۰) middlewareها و endpointها
 // فهرست نقش‌ها و محدوده‌های فعالِ تخصیص‌یافته به کاربرِ همین access token.
 // ورودی کاربر برای تعیین UserId پذیرفته نمی‌شود؛ شناسه از claim «sub» توکن می‌آید.
-app.MapGet(
-    "/api/me/access-profiles",
-    async (
-        HttpContext context,
-        ApplicationDbContext dbContext,
-        CancellationToken cancellationToken) =>
-    {
-        var subject = context.User.FindFirst("sub")?.Value;
-
-        if (!Guid.TryParse(subject, out var userId))
-        {
-            return Results.Forbid();
-        }
-
-        var profiles = await (
-            from assignment in dbContext.Set<UserRoleAssignment>()
-            join role in dbContext.Set<Role>()
-                on assignment.RoleId equals role.Id
-            join accessScope in dbContext.Set<AccessScope>()
-                on assignment.ScopeId equals accessScope.Id
-            where assignment.UserId == userId
-                  && assignment.IsEnabled
-            orderby role.Code, accessScope.Code
-            select new
-            {
-                roleCode = role.Code,
-                scopeCode = accessScope.Code
-            })
-            .ToListAsync(cancellationToken);
-
-        return Results.Ok(new
-        {
-            data = profiles,
-            message = "پروفایل‌های فعال کاربر."
-        });
-    })
-    .RequireAuthorization("AccessApi");
+app.MapAccessProfilesEndpoint();
 app.MapWorkItemsEndpoint();
 app.UseExceptionHandler();
 app.UseStatusCodePages();

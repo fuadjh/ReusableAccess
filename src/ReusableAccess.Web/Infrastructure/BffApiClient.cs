@@ -30,8 +30,15 @@ public sealed class BffApiClient(IHttpClientFactory httpClientFactory)
                 activeProfile.RoleCode);
 
             request.Headers.TryAddWithoutValidation(
-                "X-Active-Scope",
-                activeProfile.ScopeCode);
+                "X-Active-Scope-Mode",
+                activeProfile.ScopeMode);
+
+            if (!string.IsNullOrWhiteSpace(activeProfile.ScopeCode))
+            {
+                request.Headers.TryAddWithoutValidation(
+                    "X-Active-Scope",
+                    activeProfile.ScopeCode);
+            }
         }
 
         return await client.SendAsync(

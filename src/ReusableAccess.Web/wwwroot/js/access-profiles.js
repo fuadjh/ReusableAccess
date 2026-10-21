@@ -21,7 +21,9 @@
         });
 
         if (!profilesResponse.ok) {
-            throw new Error(`دریافت پروفایل‌ها ناموفق بود: ${profilesResponse.status}`);
+            throw new Error(
+                `دریافت پروفایل‌ها ناموفق بود: ${profilesResponse.status}`
+            );
         }
 
         const result = await profilesResponse.json();
@@ -36,7 +38,14 @@
         }
 
         profiles.forEach((profile, index) => {
-            const label = `${profile.roleCode} — ${profile.scopeCode}`;
+            const scopeLabel =
+                profile.scopeMode === "all"
+                    ? "همهٔ اسکوپ‌ها"
+                    : profile.scopeCode;
+
+            const label =
+                `${profile.bundleName} — ${profile.roleCode} — ${scopeLabel}`;
+
             select.add(new Option(label, String(index)));
         });
 
@@ -55,29 +64,41 @@
             status.textContent = "در حال ذخیرهٔ انتخاب...";
 
             try {
-                const response = await fetch("/bff/access-profile/select", {
-                    method: "POST",
-                    credentials: "same-origin",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRF-TOKEN": requestToken
-                    },
-                    body: JSON.stringify({
-                        roleCode: profile.roleCode,
-                        scopeCode: profile.scopeCode
-                    })
-                });
+                const response = await fetch(
+                    "/bff/access-profile/select",
+                    {
+                        method: "POST",
+                        credentials: "same-origin",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRF-TOKEN": requestToken
+                        },
+                        body: JSON.stringify({
+                            bundleId: profile.bundleId,
+                            roleCode: profile.roleCode,
+                            scopeCode: profile.scopeCode,
+                            scopeMode: profile.scopeMode
+                        })
+                    }
+                );
 
                 const body = await response.json().catch(() => ({}));
 
                 if (!response.ok) {
                     throw new Error(
-                        body.detail ?? body.title ?? `خطا: ${response.status}`
+                        body.detail ??
+                        body.title ??
+                        `خطا: ${response.status}`
                     );
                 }
 
+                const activeScopeLabel =
+                    body.scopeMode === "all"
+                        ? "همهٔ اسکوپ‌ها"
+                        : body.scopeCode;
+
                 status.textContent =
-                    `پروفایل فعال شد: ${body.roleCode} — ${body.scopeCode}`;
+                    `پروفایل فعال شد: ${body.roleCode} — ${activeScopeLabel}`;
             } catch (error) {
                 status.textContent = error.message;
             } finally {
