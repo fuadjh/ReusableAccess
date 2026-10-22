@@ -16,7 +16,8 @@ public sealed class UserAccessBundle
         string name,
         IEnumerable<Guid> roleIds,
         ScopeSelectionMode scopeSelectionMode,
-        IEnumerable<Guid>? scopeIds = null)
+        IEnumerable<Guid>? scopeIds = null, 
+        int sortOrder = 0)
     {
         if (userId == Guid.Empty)
         {
@@ -26,25 +27,44 @@ public sealed class UserAccessBundle
         }
 
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-
+        if (sortOrder < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(sortOrder));
+        }
         Id = Guid.NewGuid();
         UserId = userId;
         Name = name.Trim();
-
+        SortOrder = sortOrder;
         ReplaceDefinition(roleIds, scopeSelectionMode, scopeIds);
         IsEnabled = true;
+        
+       
+
     }
+
 
     public Guid Id { get; private set; }
 
     public Guid UserId { get; private set; }
+    public int SortOrder { get; private set; }
 
+    public void ChangeSortOrder(int sortOrder)
+    {
+        if (sortOrder < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(sortOrder));
+        }
+
+        SortOrder = sortOrder;
+    }
     public string Name { get; private set; } = string.Empty;
 
     public ScopeSelectionMode ScopeSelectionMode { get; private set; }
 
     public bool IsEnabled { get; private set; }
+   
 
+   
     public IReadOnlyCollection<UserAccessBundleRole> Roles =>
         _roles.AsReadOnly();
 

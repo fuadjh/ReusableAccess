@@ -406,12 +406,17 @@ namespace ReusableAccess.Infrastructure.Persistence.Migrations
                     b.Property<int>("ScopeSelectionMode")
                         .HasColumnType("int");
 
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
                     b.HasIndex("UserId", "IsEnabled");
+
+                    b.HasIndex("UserId", "SortOrder");
 
                     b.ToTable("UserAccessBundles", (string)null);
                 });

@@ -65,16 +65,22 @@ public sealed class PermissionAuthorizationHandler(
             _ => false
         };
 
+        var userHasAnyBundle = await dbContext.Set<UserAccessBundle>()
+    .AnyAsync(
+        bundle => bundle.UserId == userId,
+        cancellationToken);
+
         // سازگاری موقت با تخصیص‌های قدیمی؛ فقط برای اسکوپ مشخص.
         var hasLegacyPermission =
-            !hasBundlePermission &&
-            scopeMode == ScopeSelectionMode.Selected &&
-            await HasLegacyAssignmentPermissionAsync(
-                userId,
-                roleCode,
-                scopeCode!,
-                requirement.PermissionKey,
-                cancellationToken);
+     !userHasAnyBundle &&
+     !hasBundlePermission &&
+     scopeMode == ScopeSelectionMode.Selected &&
+     await HasLegacyAssignmentPermissionAsync(
+         userId,
+         roleCode,
+         scopeCode!,
+         requirement.PermissionKey,
+         cancellationToken);
 
         if (hasBundlePermission || hasLegacyPermission)
         {

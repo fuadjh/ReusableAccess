@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ReusableAccess.Domain.Entities;
+using ReusableAccess.Domain.Enums;
 using ReusableAccess.Infrastructure.Persistence;
 
 namespace ReusableAccess.Api;
@@ -71,17 +72,21 @@ public static class DevelopmentAccessSeeder
         await db.SaveChangesAsync();
 
         // هر پروفایل تخصیص دقیق و مستقل دارد؛ ارث‌بری بین محدوده‌ها نداریم.
-        await EnsureAssignmentAsync(
-            db,
-            userId,
-            clinicReaderRole.Id,
-            clinic1.Id);
+        await EnsureBundleAsync(
+     db,
+     userId,
+     "Clinic reader — Clinic 1",
+     clinicReaderRole.Id,
+     clinic1.Id,
+     sortOrder: 0);
 
-        await EnsureAssignmentAsync(
+        await EnsureBundleAsync(
             db,
             userId,
+            "HSE reader — HSE",
             hseReaderRole.Id,
-            hse.Id);
+            hse.Id,
+            sortOrder: 1);
         await EnsureWorkItemAsync(
     db,
     clinic1.Id,
@@ -136,27 +141,35 @@ public static class DevelopmentAccessSeeder
         return scope;
     }
 
-    private static async Task EnsureAssignmentAsync(
-        ApplicationDbContext db,
-        Guid userId,
-        Guid roleId,
-        Guid scopeId)
+    private static async Task EnsureBundleAsync(
+    ApplicationDbContext db,
+    Guid userId,
+    string bundleName,
+    Guid roleId,
+    Guid scopeId,
+    int sortOrder)
     {
-        var assignment = await db.Set<UserRoleAssignment>()
-            .SingleOrDefaultAsync(item =>
-                item.UserId == userId &&
-                item.RoleId == roleId &&
-                item.ScopeId == scopeId);
+        var alreadyRepresented = await db.Set<UserAccessBundle>()
+            .Where(bundle =>
+                bundle.UserId == userId &&
+                bundle.ScopeSelectionMode == ScopeSelectionMode.Selected)
+            .AnyAsync(bundle =>
+                bundle.Roles.Any(role => role.RoleId == roleId) &&
+                bundle.Scopes.Any(scope => scope.ScopeId == scopeId));
 
-        if (assignment is null)
+        if (alreadyRepresented)
         {
-            db.Set<UserRoleAssignment>().Add(
-                new UserRoleAssignment(userId, roleId, scopeId));
-
             return;
         }
 
-        assignment.Enable();
+        db.Set<UserAccessBundle>().Add(
+            new UserAccessBundle(
+                userId,
+                bundleName,
+                [roleId],
+                ScopeSelectionMode.Selected,
+                [scopeId],
+                sortOrder));
     }
     private static async Task EnsureWorkItemAsync(
     ApplicationDbContext db,

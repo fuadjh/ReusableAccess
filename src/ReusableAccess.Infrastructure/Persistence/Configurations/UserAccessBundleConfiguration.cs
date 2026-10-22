@@ -11,7 +11,14 @@ public sealed class UserAccessBundleConfiguration
     public void Configure(EntityTypeBuilder<UserAccessBundle> builder)
     {
         builder.ToTable("UserAccessBundles");
+        builder.Property(bundle => bundle.SortOrder)
+    .IsRequired();
 
+        builder.HasIndex(bundle => new
+        {
+            bundle.UserId,
+            bundle.SortOrder
+        });
         builder.HasKey(bundle => bundle.Id);
 
         builder.Property(bundle => bundle.Name)

@@ -42,6 +42,7 @@ public static class AccessProfilesEndpointExtensions
                     select new
                     {
                         bundleId = bundle.Id,
+                        sortOrder = bundle.SortOrder,
                         bundleName = bundle.Name,
                         roleCode = role.Code,
                         scopeCode = (string?)scope.Code,
@@ -63,6 +64,7 @@ public static class AccessProfilesEndpointExtensions
                     select new
                     {
                         bundleId = bundle.Id,
+                        sortOrder = bundle.SortOrder,
                         bundleName = bundle.Name,
                         roleCode = role.Code,
                         scopeCode = (string?)null,
@@ -71,12 +73,13 @@ public static class AccessProfilesEndpointExtensions
                     .ToListAsync(cancellationToken);
 
                 var profiles = selectedProfiles
-                    .Concat(allScopeProfiles)
-                    .OrderBy(profile => profile.bundleName)
-                    .ThenBy(profile => profile.roleCode)
-                    .ThenBy(profile => profile.scopeMode)
-                    .ThenBy(profile => profile.scopeCode)
-                    .ToArray();
+     .Concat(allScopeProfiles)
+     .OrderBy(profile => profile.sortOrder)
+     .ThenBy(profile => profile.bundleName)
+     .ThenBy(profile => profile.roleCode)
+     .ThenBy(profile => profile.scopeMode)
+     .ThenBy(profile => profile.scopeCode)
+     .ToArray();
 
                 return Results.Ok(new
                 {
