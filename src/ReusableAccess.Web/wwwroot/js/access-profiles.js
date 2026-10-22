@@ -38,10 +38,9 @@
         }
 
         profiles.forEach((profile, index) => {
-            const scopeLabel =
-                profile.scopeMode === "all"
-                    ? "همهٔ اسکوپ‌ها"
-                    : profile.scopeCode;
+            const scopeLabel = profile.scopeMode === "all"
+                ? "همهٔ اسکوپ‌ها"
+                : profile.scopeCode;
 
             const label =
                 `${profile.bundleName} — ${profile.roleCode} — ${scopeLabel}`;
@@ -49,10 +48,19 @@
             select.add(new Option(label, String(index)));
         });
 
+        const preferred = result.selectedProfile;
+        const preferredIndex = preferred
+            ? profiles.findIndex(profile =>
+                profile.bundleId === preferred.bundleId
+                && profile.roleId === preferred.roleId
+                && profile.scopeId === preferred.scopeId)
+            : -1;
+
+        select.value = String(preferredIndex >= 0 ? preferredIndex : 0);
         select.disabled = false;
         button.disabled = false;
 
-        button.addEventListener("click", async () => {
+        async function activateSelectedProfile() {
             const profile = profiles[Number(select.value)];
 
             if (!profile) {
@@ -86,25 +94,29 @@
 
                 if (!response.ok) {
                     throw new Error(
-                        body.detail ??
-                        body.title ??
-                        `خطا: ${response.status}`
+                        body.detail
+                        ?? body.title
+                        ?? `خطا: ${response.status}`
                     );
                 }
 
-                const activeScopeLabel =
-                    body.scopeMode === "all"
-                        ? "همهٔ اسکوپ‌ها"
-                        : body.scopeCode;
+                const scopeLabel = body.scopeMode === "all"
+                    ? "همهٔ اسکوپ‌ها"
+                    : body.scopeCode;
 
                 status.textContent =
-                    `پروفایل فعال شد: ${body.roleCode} — ${activeScopeLabel}`;
+                    `پروفایل فعال شد: ${body.roleCode} — ${scopeLabel}`;
             } catch (error) {
                 status.textContent = error.message;
             } finally {
                 button.disabled = false;
             }
-        });
+        }
+
+        button.addEventListener("click", activateSelectedProfile);
+
+        // ترجیح ذخیره‌شده، یا اولین پروفایل برگشتی از API، فعال می‌شود.
+        await activateSelectedProfile();
     } catch (error) {
         status.textContent = error.message;
     }

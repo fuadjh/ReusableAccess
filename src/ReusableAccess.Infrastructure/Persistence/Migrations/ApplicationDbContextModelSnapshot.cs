@@ -532,6 +532,18 @@ namespace ReusableAccess.Infrastructure.Persistence.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsPlatformSuperAdmin")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("LastSelectedAccessBundleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("LastSelectedAccessRoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("LastSelectedAccessScopeId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
 

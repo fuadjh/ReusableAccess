@@ -59,7 +59,17 @@ public sealed class AccessProfileSelectionService(
                 return Results.StatusCode(
                     StatusCodes.Status403Forbidden);
             }
+            using var preferenceResponse = await bffApiClient.PostJsonAsync(
+    "api/me/access-profile-preference",
+    accessToken,
+    selection,
+    cancellationToken);
 
+            if (!preferenceResponse.IsSuccessStatusCode)
+            {
+                return Results.StatusCode(
+                    (int)preferenceResponse.StatusCode);
+            }
             activeProfileStore.Set(
                 authentication.Properties,
                 selection.BundleId,

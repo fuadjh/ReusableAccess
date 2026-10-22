@@ -1,16 +1,17 @@
 ﻿using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
 using OpenIddict.Validation.AspNetCore;
+using ReusableAccess.Api;
+using ReusableAccess.Api.Authorization;
+using ReusableAccess.Api.Endpoints;
+using ReusableAccess.Domain.Entities;
 using ReusableAccess.Infrastructure;
 using ReusableAccess.Infrastructure.Authorization;
 using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
-using ReusableAccess.Domain.Entities;
-using ReusableAccess.Api.Endpoints;
-using ReusableAccess.Api.Authorization;
 
 const string apiResource = "urn:reusableaccess:api";
 
@@ -95,6 +96,10 @@ builder.Services
 builder.Services.AddInfrastructure(connectionString);
 
 builder.Services.AddReusableAccessAuthorization();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<
+    IAuthorizationHandler,
+    PlatformSuperAdminAuthorizationHandler>();
 
 // ۷) Policyهای API:
 // AccessApi فقط scope پروتکلی را بررسی می‌کند.
@@ -133,9 +138,23 @@ builder.Services.AddAuthorization(options =>
             .AddRequirements(
                 new PermissionRequirement("workitems.read"));
     });
+    options.AddPolicy("PlatformAdmin", policy =>
+    {
+        policy
+            .AddAuthenticationSchemes(
+                OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context =>
+                context.User.HasScope("access_api"))
+            .AddRequirements(new PlatformSuperAdminRequirement());
+    });
 });
 
 var app = builder.Build();
+
+await PlatformSuperAdminSeeder.SeedAsync(
+    app.Services,
+    app.Configuration);
 
 // ۸) ثبت/به‌روزرسانی کلاینت Web و scope مربوط به API در OpenIddict
 await using (var scope = app.Services.CreateAsyncScope())
@@ -249,6 +268,8 @@ if (app.Environment.IsDevelopment())
 // فهرست نقش‌ها و محدوده‌های فعالِ تخصیص‌یافته به کاربرِ همین access token.
 // ورودی کاربر برای تعیین UserId پذیرفته نمی‌شود؛ شناسه از claim «sub» توکن می‌آید.
 app.MapAccessProfilesEndpoint();
+app.MapAdminRolePermissionsEndpoint();  
+app.MapAdminRolesEndpoints();
 app.MapWorkItemsEndpoint();
 app.UseExceptionHandler();
 app.UseStatusCodePages();

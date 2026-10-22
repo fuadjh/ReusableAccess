@@ -1,0 +1,63 @@
+﻿@page "/admin/roles"
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>مدیریت نقش‌ها</PageTitle>
+
+<h1>مدیریت نقش‌ها</h1>
+<p>فهرست نقش‌ها از API دریافت می‌شود؛ مجوز مدیر سراسری در API بررسی می‌شود.</p>
+
+<p id="admin-roles-status" role="status" aria-live="polite">
+    در حال دریافت نقش‌ها...
+</p>
+
+<ul id="admin-roles-list"></ul>
+
+@code {
+    private IJSObjectReference? module;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var authState =
+            await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            var returnUrl = Uri.EscapeDataString("/admin/roles");
+            Navigation.NavigateTo(
+                $"/account/login?returnUrl={returnUrl}",
+                forceLoad: true);
+            return;
+        }
+
+        module = await JS.InvokeAsync<IJSObjectReference>(
+            "import",
+            "/js/admin-roles.js");
+
+        await module.InvokeVoidAsync("initialize");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // در صورت قطع circuit، آزادسازی ماژول ممکن نیست.
+        }
+    }
+}

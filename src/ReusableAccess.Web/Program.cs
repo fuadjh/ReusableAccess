@@ -297,7 +297,117 @@ app.MapGet(
             cancellationToken);
     })
     .RequireAuthorization();
+app.MapGet(
+    "/bff/admin/roles",
+    async (
+        HttpContext context,
+        BffApiClient bffApiClient,
+        CancellationToken cancellationToken) =>
+    {
+        var accessToken = await context.GetTokenAsync("access_token");
 
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "توکن دسترسی در ticket سمت‌سرور موجود نیست.");
+        }
+
+        return await bffApiClient.ForwardGetAsync(
+            "api/admin/roles",
+            accessToken,
+            activeProfile: null,
+            cancellationToken);
+    })
+    .RequireAuthorization();
+app.MapGet(
+    "/bff/admin/roles/{roleId:guid}/permissions",
+    async (
+        Guid roleId,
+        string? q,
+        HttpContext context,
+        BffApiClient bffApiClient,
+        CancellationToken cancellationToken) =>
+    {
+        var accessToken = await context.GetTokenAsync("access_token");
+
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "توکن دسترسی در ticket سمت‌سرور موجود نیست.");
+        }
+
+        var apiPath =
+            $"api/admin/roles/{roleId}/permissions";
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            apiPath += $"?q={Uri.EscapeDataString(q)}";
+        }
+
+        return await bffApiClient.ForwardGetAsync(
+            apiPath,
+            accessToken,
+            activeProfile: null,
+            cancellationToken);
+    })
+    .RequireAuthorization();
+
+app.MapPut(
+    "/bff/admin/roles/{roleId:guid}/permissions",
+    async (
+        Guid roleId,
+        HttpContext context,
+        IAntiforgery antiforgery,
+        BffApiClient bffApiClient,
+        CancellationToken cancellationToken) =>
+    {
+        try
+        {
+            await antiforgery.ValidateRequestAsync(context);
+        }
+        catch (AntiforgeryValidationException)
+        {
+            return Results.BadRequest("درخواست ضد-CSRF معتبر نیست.");
+        }
+
+        AdminRolePermissionUpdateRequest? request;
+
+        try
+        {
+            request =
+                await context.Request.ReadFromJsonAsync
+                    <AdminRolePermissionUpdateRequest>(
+                        cancellationToken);
+        }
+        catch (JsonException)
+        {
+            return Results.BadRequest("بدنهٔ درخواست معتبر نیست.");
+        }
+
+        if (request?.PermissionKeys is null)
+        {
+            return Results.BadRequest(
+                "فهرست Permissionها الزامی است.");
+        }
+
+        var accessToken = await context.GetTokenAsync("access_token");
+
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status401Unauthorized,
+                title: "توکن دسترسی در ticket سمت‌سرور موجود نیست.");
+        }
+
+        return await bffApiClient.ForwardPutJsonAsync(
+            $"api/admin/roles/{roleId}/permissions",
+            accessToken,
+            request,
+            cancellationToken);
+    })
+    .RequireAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
@@ -336,3 +446,5 @@ public sealed record AccessProfileSelectionRequest(
     string RoleCode,
     string? ScopeCode,
     string ScopeMode);
+public sealed record AdminRolePermissionUpdateRequest(
+    string[]? PermissionKeys);
