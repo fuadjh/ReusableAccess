@@ -109,6 +109,46 @@ public sealed class BffApiClient(IHttpClientFactory httpClientFactory)
                 title: "ارتباط با API برقرار نشد.");
         }
     }
+    public async Task<IResult> ForwardPostJsonAsync<T>(
+    string relativeUri,
+    string accessToken,
+    T body,
+    CancellationToken cancellationToken)
+    {
+        try
+        {
+            var client = httpClientFactory.CreateClient("Api");
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                relativeUri);
+
+            request.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Content = JsonContent.Create(body);
+
+            using var response = await client.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            var responseBody = await response.Content.ReadAsStringAsync(
+                cancellationToken);
+            var contentType =
+                response.Content.Headers.ContentType?.ToString()
+                ?? "application/json";
+
+            return Results.Content(
+                responseBody,
+                contentType,
+                statusCode: (int)response.StatusCode);
+        }
+        catch (HttpRequestException)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status502BadGateway,
+                title: "ارتباط با API برقرار نشد.");
+        }
+    }
     public async Task<IResult> ForwardGetAsync(
         string relativeUri,
         string accessToken,

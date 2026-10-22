@@ -8,6 +8,26 @@
 
 <h1>مدیریت نقش‌ها</h1>
 <p>فهرست نقش‌ها از API دریافت می‌شود؛ مجوز مدیر سراسری در API بررسی می‌شود.</p>
+<p><a href="/admin/scopes">مدیریت Scopeها</a></p>
+<p><a href="/admin/bundles">مدیریت Bundleهای کاربران</a></p>
+
+<form id="admin-role-create-form">
+    <label for="role-code">کد نقش</label>
+    <input id="role-code"
+           name="code"
+           maxlength="100"
+           required />
+
+    <label for="role-display-name">نام نمایشی</label>
+    <input id="role-display-name"
+           name="displayName"
+           maxlength="200"
+           required />
+
+    <button id="role-create-button" type="submit">
+        ایجاد نقش
+    </button>
+</form>
 
 <p id="admin-roles-status" role="status" aria-live="polite">
     در حال دریافت نقش‌ها...

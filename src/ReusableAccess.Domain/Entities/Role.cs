@@ -55,4 +55,19 @@ public sealed class Role
 
         return _permissions.Remove(rolePermission);
     }
+    public void Rename(string displayName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+
+        displayName = displayName.Trim();
+
+        if (displayName.Length > 200)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(displayName),
+                "نام نمایشی نقش نباید بیشتر از ۲۰۰ کاراکتر باشد.");
+        }
+
+        DisplayName = displayName;
+    }
 }

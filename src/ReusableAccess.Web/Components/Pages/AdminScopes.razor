@@ -1,0 +1,77 @@
+﻿@page "/admin/scopes"
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>مدیریت Scopeها</PageTitle>
+
+<h1>مدیریت Scopeها</h1>
+<p>ایجاد Scope و تغییر نام نمایشی فقط برای مدیر سراسری مجاز است.</p>
+
+<form id="admin-scope-create-form">
+    <label for="scope-code">کد Scope</label>
+    <input id="scope-code" maxlength="100" required />
+
+    <label for="scope-display-name">نام نمایشی</label>
+    <input id="scope-display-name" maxlength="200" required />
+
+    <label for="scope-parent">Scope والد (اختیاری)</label>
+    <select id="scope-parent">
+        <option value="">بدون والد</option>
+    </select>
+
+    <button id="scope-create-button" type="submit">ایجاد Scope</button>
+</form>
+
+<p id="admin-scopes-status" role="status" aria-live="polite">
+    در حال دریافت Scopeها...
+</p>
+<ul id="admin-scopes-list"></ul>
+
+@code {
+    private IJSObjectReference? module;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var authState =
+            await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            var returnUrl = Uri.EscapeDataString("/admin/scopes");
+            Navigation.NavigateTo(
+                $"/account/login?returnUrl={returnUrl}",
+                forceLoad: true);
+            return;
+        }
+
+        module = await JS.InvokeAsync<IJSObjectReference>(
+            "import",
+            "/js/admin-scopes.js");
+
+        await module.InvokeVoidAsync("initialize");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // در صورت قطع circuit آزادسازی ماژول ممکن نیست.
+        }
+    }
+}

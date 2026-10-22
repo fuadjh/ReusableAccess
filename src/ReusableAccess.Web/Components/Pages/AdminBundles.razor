@@ -1,0 +1,99 @@
+﻿@page "/admin/bundles"
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>مدیریت Bundleها</PageTitle>
+
+<h1>مدیریت Bundleهای کاربران</h1>
+<p>ابتدا کاربر موجود را جست‌وجو و انتخاب کنید.</p>
+
+<label for="bundle-user-search">نام یا نام کاربری</label>
+<input id="bundle-user-search" type="search" minlength="2" />
+<button id="bundle-user-search-button" type="button">جست‌وجو</button>
+<ul id="bundle-user-results"></ul>
+
+<hr />
+
+<p id="admin-bundles-status" role="status" aria-live="polite">
+    ابتدا کاربر را جست‌وجو کنید.
+</p>
+<ul id="admin-bundles-list"></ul>
+
+<form id="admin-bundle-form" hidden>
+    <h2 id="bundle-form-title">ایجاد Bundle</h2>
+
+    <label for="bundle-name">نام Bundle</label>
+    <input id="bundle-name" maxlength="200" required />
+
+    <label for="bundle-roles">نقش‌ها</label>
+    <select id="bundle-roles" multiple required></select>
+
+    <label for="bundle-scope-mode">حالت Scope</label>
+    <select id="bundle-scope-mode">
+        <option value="selected">Scopeهای انتخاب‌شده</option>
+        <option value="all">همهٔ Scopeها</option>
+    </select>
+
+    <label for="bundle-scopes">Scopeها</label>
+    <select id="bundle-scopes" multiple></select>
+
+    <label for="bundle-sort-order">ترتیب نمایش</label>
+    <input id="bundle-sort-order" type="number" min="0" value="0" />
+
+    <label>
+        <input id="bundle-enabled" type="checkbox" checked />
+        فعال
+    </label>
+
+    <button id="bundle-save-button" type="submit">ذخیرهٔ Bundle</button>
+    <button id="bundle-cancel-button" type="button">لغو ویرایش</button>
+</form>
+
+@code {
+    private IJSObjectReference? module;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var authState =
+            await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        if (authState.User.Identity?.IsAuthenticated != true)
+        {
+            var returnUrl = Uri.EscapeDataString("/admin/bundles");
+            Navigation.NavigateTo(
+                $"/account/login?returnUrl={returnUrl}",
+                forceLoad: true);
+            return;
+        }
+
+        module = await JS.InvokeAsync<IJSObjectReference>(
+            "import",
+            "/js/admin-bundles.js");
+
+        await module.InvokeVoidAsync("initialize");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // با قطع circuit، آزادسازی ماژول ممکن نیست.
+        }
+    }
+}

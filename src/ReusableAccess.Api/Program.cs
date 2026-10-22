@@ -273,7 +273,8 @@ app.MapAdminRolesEndpoints();
 app.MapWorkItemsEndpoint();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
-
+app.MapAdminScopesEndpoints();
+app.MapAdminBundlesEndpoints();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();

@@ -28,6 +28,21 @@ public sealed class AccessScope
         DisplayName = displayName.Trim();
         ParentScopeId = parentScopeId;
     }
+    public void Rename(string displayName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+
+        displayName = displayName.Trim();
+
+        if (displayName.Length > 200)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(displayName),
+                "نام نمایشی Scope نباید بیشتر از ۲۰۰ کاراکتر باشد.");
+        }
+
+        DisplayName = displayName;
+    }
 
     public Guid Id { get; private set; }
 

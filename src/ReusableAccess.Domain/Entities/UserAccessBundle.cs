@@ -42,6 +42,22 @@ public sealed class UserAccessBundle
 
     }
 
+    public void Rename(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        name = name.Trim();
+
+        if (name.Length > 200)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(name),
+                "نام Bundle نباید بیشتر از ۲۰۰ کاراکتر باشد.");
+        }
+
+        Name = name;
+    }
+
 
     public Guid Id { get; private set; }
 
