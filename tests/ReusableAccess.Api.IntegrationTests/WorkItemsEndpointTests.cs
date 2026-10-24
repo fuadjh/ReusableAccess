@@ -11,15 +11,21 @@ using OpenIddict.Abstractions;
 using OpenIddict.Validation.AspNetCore;
 using ReusableAccess.Api.Authorization;
 using ReusableAccess.Api.Endpoints;
+using ReusableAccess.Application;
+using ReusableAccess.Application.AccessProfiles;
+using ReusableAccess.Application.Roles;
+using ReusableAccess.Application.Scopes;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Domain.Enums;
+using ReusableAccess.Infrastructure.AccessProfiles;
 using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.Persistence;
+using ReusableAccess.Infrastructure.Roles;
+using ReusableAccess.Infrastructure.Scopes;
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-
 namespace ReusableAccess.Api.IntegrationTests;
 
 public sealed class WorkItemsEndpointTests
@@ -317,6 +323,14 @@ internal sealed class ApiTestHost : IAsyncDisposable
                 policy => policy.RequireAuthenticatedUser());
         });
         builder.Services.AddReusableAccessAuthorization();
+        builder.Services.AddApplication();
+
+        builder.Services.AddScoped<  IAccessProfilesReadStore,AccessProfilesReadStore>();
+        builder.Services.AddScoped<  IAccessProfilePreferenceStore, AccessProfilePreferenceStore>();
+        builder.Services.AddScoped<IRoleReadStore, RoleReadStore>();
+        builder.Services.AddScoped<IRoleCommandStore, RoleCommandStore>();
+        builder.Services.AddScoped<IScopeReadStore, ScopeReadStore>();
+        builder.Services.AddScoped<IScopeCommandStore, ScopeCommandStore>();
 
         var application = builder.Build();
 
@@ -324,7 +338,7 @@ internal sealed class ApiTestHost : IAsyncDisposable
         application.UseAuthorization();
         application.MapWorkItemsEndpoint();
         application.MapAccessProfilesEndpoint();
-
+         
         var assignedUserId = Guid.NewGuid();
         var userWithoutPermissionId = Guid.NewGuid();
         var bundleUserId = Guid.NewGuid();

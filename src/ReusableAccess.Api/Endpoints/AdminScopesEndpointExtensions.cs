@@ -1,4 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ReusableAccess.Application.Scopes;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Infrastructure.Persistence;
 
@@ -10,37 +13,29 @@ public static class AdminScopesEndpointExtensions
         this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet(
-            "/api/admin/scopes",
-            async (
-                ApplicationDbContext dbContext,
-                CancellationToken cancellationToken) =>
-            {
-                var scopes = await dbContext.Set<AccessScope>()
-                    .AsNoTracking()
-                    .OrderBy(scope => scope.Code)
-                    .Select(scope => new
-                    {
-                        scopeId = scope.Id,
-                        scopeCode = scope.Code,
-                        displayName = scope.DisplayName,
-                        parentScopeId = scope.ParentScopeId
-                    })
-                    .ToListAsync(cancellationToken);
+     "/api/admin/scopes",
+     async (
+         [FromServices] ISender sender,
+         CancellationToken cancellationToken) =>
+     {
+         var scopes = await sender.Send(
+             new GetScopesQuery(),
+             cancellationToken);
 
-                return Results.Ok(new
-                {
-                    data = scopes,
-                    message = "فهرست Scopeها."
-                });
-            })
-            .RequireAuthorization("PlatformAdmin");
+         return Results.Ok(new
+         {
+             data = scopes,
+             message = "فهرست Scopeها."
+         });
+     })
+     .RequireAuthorization("PlatformAdmin");
 
         endpoints.MapPost(
             "/api/admin/scopes",
             async (
-                CreateScopeRequest request,
-                ApplicationDbContext dbContext,
-                CancellationToken cancellationToken) =>
+    CreateScopeRequest request,
+    [FromServices] ISender sender,
+    CancellationToken cancellationToken) =>
             {
                 var code = request.Code?.Trim();
                 var displayName = request.DisplayName?.Trim();
@@ -58,10 +53,14 @@ public static class AdminScopesEndpointExtensions
                     });
                 }
 
-                var codeExists = await dbContext.Set<AccessScope>()
-                    .AnyAsync(scope => scope.Code == code, cancellationToken);
+                var result = await sender.Send(
+     new CreateScopeCommand(
+         code,
+         displayName,
+         request.ParentScopeId),
+     cancellationToken);
 
-                if (codeExists)
+                if (result.Status == ScopeCreationStatus.CodeConflict)
                 {
                     return Results.Conflict(new
                     {
@@ -69,38 +68,24 @@ public static class AdminScopesEndpointExtensions
                     });
                 }
 
-                if (request.ParentScopeId is Guid parentId)
+                if (result.Status == ScopeCreationStatus.ParentNotFound)
                 {
-                    var parentExists = await dbContext.Set<AccessScope>()
-                        .AnyAsync(
-                            scope => scope.Id == parentId,
-                            cancellationToken);
-
-                    if (!parentExists)
+                    return Results.BadRequest(new
                     {
-                        return Results.BadRequest(new
-                        {
-                            message = "Scope والد پیدا نشد."
-                        });
-                    }
+                        message = "Scope والد پیدا نشد."
+                    });
                 }
 
-                var scope = new AccessScope(
-                    code,
-                    displayName,
-                    request.ParentScopeId);
-
-                dbContext.Set<AccessScope>().Add(scope);
-                await dbContext.SaveChangesAsync(cancellationToken);
+                var scope = result.Data!;
 
                 return Results.Created(
-                    $"/api/admin/scopes/{scope.Id}",
+                    $"/api/admin/scopes/{scope.ScopeId}",
                     new
                     {
                         data = new
                         {
-                            scopeId = scope.Id,
-                            scopeCode = scope.Code,
+                            scopeId = scope.ScopeId,
+                            scopeCode = scope.ScopeCode,
                             displayName = scope.DisplayName,
                             parentScopeId = scope.ParentScopeId
                         },

@@ -1,4 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ReusableAccess.Application.Roles;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Infrastructure.Persistence;
 
@@ -10,36 +13,29 @@ public static class AdminRolesEndpointExtensions
         this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet(
-            "/api/admin/roles",
-            async (
-                ApplicationDbContext dbContext,
-                CancellationToken cancellationToken) =>
-            {
-                var roles = await dbContext.Roles
-                    .AsNoTracking()
-                    .OrderBy(role => role.Code)
-                    .Select(role => new
-                    {
-                        roleId = role.Id,
-                        roleCode = role.Code,
-                        displayName = role.DisplayName
-                    })
-                    .ToListAsync(cancellationToken);
+     "/api/admin/roles",
+     async (
+         [FromServices] ISender sender,
+         CancellationToken cancellationToken) =>
+     {
+         var roles = await sender.Send(
+             new GetRolesQuery(),
+             cancellationToken);
 
-                return Results.Ok(new
-                {
-                    data = roles,
-                    message = "فهرست نقش‌ها."
-                });
-            })
-            .RequireAuthorization("PlatformAdmin");
+         return Results.Ok(new
+         {
+             data = roles,
+             message = "فهرست نقش‌ها."
+         });
+     })
+     .RequireAuthorization("PlatformAdmin");
 
         endpoints.MapPost(
             "/api/admin/roles",
             async (
-                CreateRoleRequest request,
-                ApplicationDbContext dbContext,
-                CancellationToken cancellationToken) =>
+    CreateRoleRequest request,
+    [FromServices] ISender sender,
+    CancellationToken cancellationToken) =>
             {
                 var code = request.Code?.Trim();
                 var displayName = request.DisplayName?.Trim();
@@ -56,10 +52,11 @@ public static class AdminRolesEndpointExtensions
                     });
                 }
 
-                var codeExists = await dbContext.Roles
-                    .AnyAsync(role => role.Code == code, cancellationToken);
+                var result = await sender.Send(
+     new CreateRoleCommand(code, displayName),
+     cancellationToken);
 
-                if (codeExists)
+                if (result.AlreadyExists)
                 {
                     return Results.Conflict(new
                     {
@@ -67,33 +64,28 @@ public static class AdminRolesEndpointExtensions
                     });
                 }
 
-                var role = new Role(code, displayName);
-
-                dbContext.Roles.Add(role);
-                await dbContext.SaveChangesAsync(cancellationToken);
-
                 return Results.Created(
-                    $"/api/admin/roles/{role.Id}",
-                    new
-                    {
-                        data = new
-                        {
-                            roleId = role.Id,
-                            roleCode = role.Code,
-                            displayName = role.DisplayName
-                        },
-                        message = "نقش ایجاد شد."
-                    });
+       $"/api/admin/roles/{result.RoleId}",
+       new
+       {
+           data = new
+           {
+               roleId = result.RoleId,
+               roleCode = result.RoleCode,
+               displayName = result.DisplayName
+           },
+           message = "نقش ایجاد شد."
+       });
             })
             .RequireAuthorization("PlatformAdmin");
 
         endpoints.MapPut(
             "/api/admin/roles/{roleId:guid}",
             async (
-                Guid roleId,
-                UpdateRoleRequest request,
-                ApplicationDbContext dbContext,
-                CancellationToken cancellationToken) =>
+    Guid roleId,
+    UpdateRoleRequest request,
+    [FromServices] ISender sender,
+    CancellationToken cancellationToken) =>
             {
                 var displayName = request.DisplayName?.Trim();
 
@@ -107,12 +99,11 @@ public static class AdminRolesEndpointExtensions
                     });
                 }
 
-                var role = await dbContext.Roles
-                    .SingleOrDefaultAsync(
-                        item => item.Id == roleId,
-                        cancellationToken);
+                var result = await sender.Send(
+     new RenameRoleCommand(roleId, displayName),
+     cancellationToken);
 
-                if (role is null)
+                if (result is null)
                 {
                     return Results.NotFound(new
                     {
@@ -120,16 +111,13 @@ public static class AdminRolesEndpointExtensions
                     });
                 }
 
-                role.Rename(displayName);
-                await dbContext.SaveChangesAsync(cancellationToken);
-
                 return Results.Ok(new
                 {
                     data = new
                     {
-                        roleId = role.Id,
-                        roleCode = role.Code,
-                        displayName = role.DisplayName
+                        roleId = result.RoleId,
+                        roleCode = result.RoleCode,
+                        displayName = result.DisplayName
                     },
                     message = "نقش به‌روزرسانی شد."
                 });

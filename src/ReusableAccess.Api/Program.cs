@@ -12,6 +12,7 @@ using ReusableAccess.Infrastructure;
 using ReusableAccess.Infrastructure.Authorization;
 using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.Persistence;
+using ReusableAccess.Application;
 
 const string apiResource = "urn:reusableaccess:api";
 
@@ -23,7 +24,7 @@ builder.Services.AddControllers();
 builder.Services.AddRazorPages();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
-
+builder.Services.AddApplication();
 // ۲) خواندن تنظیمات اتصال و secret کلاینت
 var connectionString =
     builder.Configuration.GetConnectionString("DefaultConnection");
