@@ -95,54 +95,50 @@ public static class AdminScopesEndpointExtensions
             .RequireAuthorization("PlatformAdmin");
 
         endpoints.MapPut(
-            "/api/admin/scopes/{scopeId:guid}",
-            async (
-                Guid scopeId,
-                UpdateScopeRequest request,
-                ApplicationDbContext dbContext,
-                CancellationToken cancellationToken) =>
-            {
-                var displayName = request.DisplayName?.Trim();
+      "/api/admin/scopes/{scopeId:guid}",
+      async (
+          Guid scopeId,
+          UpdateScopeRequest request,
+          [FromServices] ISender sender,
+          CancellationToken cancellationToken) =>
+      {
+          var displayName = request.DisplayName?.Trim();
 
-                if (string.IsNullOrWhiteSpace(displayName)
-                    || displayName.Length > 200)
-                {
-                    return Results.BadRequest(new
-                    {
-                        message =
-                            "نام نمایشی Scope الزامی است و حداکثر ۲۰۰ کاراکتر دارد."
-                    });
-                }
+          if (string.IsNullOrWhiteSpace(displayName)
+              || displayName.Length > 200)
+          {
+              return Results.BadRequest(new
+              {
+                  message =
+                      "نام نمایشی Scope الزامی است و حداکثر ۲۰۰ کاراکتر دارد."
+              });
+          }
 
-                var scope = await dbContext.Set<AccessScope>()
-                    .SingleOrDefaultAsync(
-                        item => item.Id == scopeId,
-                        cancellationToken);
+          var result = await sender.Send(
+              new RenameScopeCommand(scopeId, displayName),
+              cancellationToken);
 
-                if (scope is null)
-                {
-                    return Results.NotFound(new
-                    {
-                        message = "Scope پیدا نشد."
-                    });
-                }
+          if (result is null)
+          {
+              return Results.NotFound(new
+              {
+                  message = "Scope پیدا نشد."
+              });
+          }
 
-                scope.Rename(displayName);
-                await dbContext.SaveChangesAsync(cancellationToken);
-
-                return Results.Ok(new
-                {
-                    data = new
-                    {
-                        scopeId = scope.Id,
-                        scopeCode = scope.Code,
-                        displayName = scope.DisplayName,
-                        parentScopeId = scope.ParentScopeId
-                    },
-                    message = "Scope به‌روزرسانی شد."
-                });
-            })
-            .RequireAuthorization("PlatformAdmin");
+          return Results.Ok(new
+          {
+              data = new
+              {
+                  scopeId = result.ScopeId,
+                  scopeCode = result.ScopeCode,
+                  displayName = result.DisplayName,
+                  parentScopeId = result.ParentScopeId
+              },
+              message = "Scope به‌روزرسانی شد."
+          });
+      })
+      .RequireAuthorization("PlatformAdmin");
 
         return endpoints;
     }

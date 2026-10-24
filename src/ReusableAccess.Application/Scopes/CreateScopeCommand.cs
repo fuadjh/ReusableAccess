@@ -30,4 +30,8 @@ public interface IScopeCommandStore
     Task<ScopeCreationResult> CreateAsync(
         CreateScopeCommand command,
         CancellationToken cancellationToken);
+    Task<ScopeRenameResult?> RenameAsync(
+    Guid scopeId,
+    string displayName,
+    CancellationToken cancellationToken);
 }

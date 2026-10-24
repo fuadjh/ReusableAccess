@@ -51,4 +51,29 @@ public sealed class ScopeCommandStore(
                 scope.DisplayName,
                 scope.ParentScopeId));
     }
+
+    public async Task<ScopeRenameResult?> RenameAsync(
+    Guid scopeId,
+    string displayName,
+    CancellationToken cancellationToken)
+    {
+        var scope = await dbContext.Set<AccessScope>()
+            .SingleOrDefaultAsync(
+                item => item.Id == scopeId,
+                cancellationToken);
+
+        if (scope is null)
+        {
+            return null;
+        }
+
+        scope.Rename(displayName);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return new ScopeRenameResult(
+            scope.Id,
+            scope.Code,
+            scope.DisplayName,
+            scope.ParentScopeId);
+    }
 }
