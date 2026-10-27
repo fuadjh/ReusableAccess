@@ -10,6 +10,7 @@ using ReusableAccess.Application.Bundles;
 using ReusableAccess.Application.RolePermissions;
 using ReusableAccess.Application.Roles;
 using ReusableAccess.Application.Scopes;
+using ReusableAccess.Application.Seeding;
 using ReusableAccess.Application.WorkItems;
 using ReusableAccess.Infrastructure.Bundles;
 using ReusableAccess.Infrastructure.Identity;
@@ -46,7 +47,7 @@ public static class DependencyInjection
         services.AddScoped<    IRolePermissionsQueryStore,    RolePermissionsQueryStore>();
         services.AddScoped<    IRolePermissionsCommandStore,    RolePermissionsCommandStore>();
         services.AddScoped<IWorkItemsQueryStore, WorkItemsQueryStore>();
-
+        services.AddScoped<    IDevelopmentAccessSeeder,    DevelopmentAccessSeeder>();
         return services;
     }
 }

@@ -1,19 +1,17 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using ReusableAccess.Application.Seeding;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Domain.Enums;
 using ReusableAccess.Infrastructure.Persistence;
 
-namespace ReusableAccess.Api;
+namespace ReusableAccess.Infrastructure.Identity;
 
-public static class DevelopmentAccessSeeder
+public sealed class DevelopmentAccessSeeder(
+    ApplicationDbContext db)
+    : IDevelopmentAccessSeeder
 {
-    public static async Task SeedAsync(
-        IServiceProvider services,
-        Guid userId)
+    public async Task SeedAsync(Guid userId)
     {
-        var db = services.GetRequiredService<ApplicationDbContext>();
-
         const string permissionKey = "diagnostics.read";
         const string workItemsPermissionKey = "workitems.read";
 
@@ -43,58 +41,52 @@ public static class DevelopmentAccessSeeder
         }
 
         var clinicReaderRole = await GetOrCreateRoleAsync(
-            db,
             "DIAGNOSTICS_READER",
             "Diagnostics reader");
 
         var hseReaderRole = await GetOrCreateRoleAsync(
-            db,
             "HSE_READER",
             "HSE reader");
 
         var clinic1 = await GetOrCreateScopeAsync(
-            db,
             "CLINIC_1",
             "درمانگاه ۱");
 
         var hse = await GetOrCreateScopeAsync(
-            db,
             "HSE",
             "واحد HSE");
 
-        // ذخیرهٔ نقش‌ها، محدوده‌ها و مجوز پیش از ساخت روابط آن‌ها.
+        // نقش‌ها، محدوده‌ها و مجوزها باید پیش از ساخت روابط ذخیره شوند.
         await db.SaveChangesAsync();
 
         clinicReaderRole.AddPermission(permission);
         hseReaderRole.AddPermission(permission);
         clinicReaderRole.AddPermission(workItemsPermission);
         hseReaderRole.AddPermission(workItemsPermission);
+
         await db.SaveChangesAsync();
 
-        // هر پروفایل تخصیص دقیق و مستقل دارد؛ ارث‌بری بین محدوده‌ها نداریم.
+        // هر تخصیص، محدودهٔ مستقل دارد؛ محدوده‌ها از یکدیگر ارث نمی‌برند.
         await EnsureBundleAsync(
-     db,
-     userId,
-     "Clinic reader — Clinic 1",
-     clinicReaderRole.Id,
-     clinic1.Id,
-     sortOrder: 0);
+            userId,
+            "Clinic reader — Clinic 1",
+            clinicReaderRole.Id,
+            clinic1.Id,
+            sortOrder: 0);
 
         await EnsureBundleAsync(
-            db,
             userId,
             "HSE reader — HSE",
             hseReaderRole.Id,
             hse.Id,
             sortOrder: 1);
-        await EnsureWorkItemAsync(
-    db,
-    clinic1.Id,
-    "پیگیری معاینه دوره‌ای",
-    "Open");
 
         await EnsureWorkItemAsync(
-            db,
+            clinic1.Id,
+            "پیگیری معاینه دوره‌ای",
+            "Open");
+
+        await EnsureWorkItemAsync(
             hse.Id,
             "بازرسی تجهیزات ایمنی",
             "Open");
@@ -102,8 +94,7 @@ public static class DevelopmentAccessSeeder
         await db.SaveChangesAsync();
     }
 
-    private static async Task<Role> GetOrCreateRoleAsync(
-        ApplicationDbContext db,
+    private async Task<Role> GetOrCreateRoleAsync(
         string roleCode,
         string displayName)
     {
@@ -122,8 +113,7 @@ public static class DevelopmentAccessSeeder
         return role;
     }
 
-    private static async Task<AccessScope> GetOrCreateScopeAsync(
-        ApplicationDbContext db,
+    private async Task<AccessScope> GetOrCreateScopeAsync(
         string scopeCode,
         string displayName)
     {
@@ -141,13 +131,12 @@ public static class DevelopmentAccessSeeder
         return scope;
     }
 
-    private static async Task EnsureBundleAsync(
-    ApplicationDbContext db,
-    Guid userId,
-    string bundleName,
-    Guid roleId,
-    Guid scopeId,
-    int sortOrder)
+    private async Task EnsureBundleAsync(
+        Guid userId,
+        string bundleName,
+        Guid roleId,
+        Guid scopeId,
+        int sortOrder)
     {
         var alreadyRepresented = await db.Set<UserAccessBundle>()
             .Where(bundle =>
@@ -171,11 +160,11 @@ public static class DevelopmentAccessSeeder
                 [scopeId],
                 sortOrder));
     }
-    private static async Task EnsureWorkItemAsync(
-    ApplicationDbContext db,
-    Guid scopeId,
-    string title,
-    string status)
+
+    private async Task EnsureWorkItemAsync(
+        Guid scopeId,
+        string title,
+        string status)
     {
         var exists = await db.Set<WorkItem>()
             .AnyAsync(item =>

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using OpenIddict.Abstractions;
+using ReusableAccess.Application.Seeding;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Infrastructure.Identity;
 
@@ -115,9 +116,10 @@ public static class ApiStartupInitializationExtensions
                     "The configured development user was not found.");
             }
 
-            await DevelopmentAccessSeeder.SeedAsync(
-                developmentScope.ServiceProvider,
-                seededUser.Id);
+            var developmentAccessSeeder = developmentScope.ServiceProvider
+    .GetRequiredService<IDevelopmentAccessSeeder>();
+
+            await developmentAccessSeeder.SeedAsync(seededUser.Id);
         }
     }
 }
