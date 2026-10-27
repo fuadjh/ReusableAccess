@@ -1,9 +1,7 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Application.Roles;
-using ReusableAccess.Domain.Entities;
-using ReusableAccess.Infrastructure.Persistence;
+
 
 namespace ReusableAccess.Api.Endpoints;
 

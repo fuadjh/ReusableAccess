@@ -1,11 +1,9 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+
 using ReusableAccess.Application.Bundles;
 using ReusableAccess.Application.Users;
-using ReusableAccess.Domain.Entities;
-using ReusableAccess.Domain.Enums;
-using ReusableAccess.Infrastructure.Persistence;
+
 
 namespace ReusableAccess.Api.Endpoints;
 
@@ -175,69 +173,7 @@ public static class AdminBundlesEndpointExtensions
         return endpoints;
     }
 
-    private static ScopeSelectionMode ParseMode(string? mode) =>
-        string.Equals(mode, "all", StringComparison.OrdinalIgnoreCase)
-            ? ScopeSelectionMode.All
-            : ScopeSelectionMode.Selected;
-
-    private static async Task<string?> ValidateRequestAsync(
-        SaveBundleRequest request,
-        ApplicationDbContext db,
-        CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(request.Name)
-            || request.Name.Trim().Length > 200
-            || request.SortOrder < 0
-            || request.RoleIds is null
-            || request.RoleIds.Length == 0
-            || request.RoleIds.Any(id => id == Guid.Empty)
-            || request.ScopeIds is null
-            || request.ScopeIds.Any(id => id == Guid.Empty))
-        {
-            return "اطلاعات Bundle معتبر نیست.";
-        }
-
-        var allMode = string.Equals(
-            request.ScopeMode,
-            "all",
-            StringComparison.OrdinalIgnoreCase);
-        var selectedMode = string.Equals(
-            request.ScopeMode,
-            "selected",
-            StringComparison.OrdinalIgnoreCase);
-
-        if (!allMode && !selectedMode)
-        {
-            return "scopeMode باید all یا selected باشد.";
-        }
-
-        if (allMode && request.ScopeIds.Length > 0)
-        {
-            return "در حالت all نباید Scope مشخص ارسال شود.";
-        }
-
-        if (selectedMode && request.ScopeIds.Length == 0)
-        {
-            return "در حالت selected دست‌کم یک Scope لازم است.";
-        }
-
-        var roleIds = request.RoleIds.Distinct().ToArray();
-        var scopeIds = request.ScopeIds.Distinct().ToArray();
-
-        if (await db.Set<Role>().CountAsync(
-                role => roleIds.Contains(role.Id), ct) != roleIds.Length)
-        {
-            return "یک یا چند Role پیدا نشد.";
-        }
-
-        if (await db.Set<AccessScope>().CountAsync(
-                scope => scopeIds.Contains(scope.Id), ct) != scopeIds.Length)
-        {
-            return "یک یا چند Scope پیدا نشد.";
-        }
-
-        return null;
-    }
+   
 }
 
 public sealed record SaveBundleRequest(

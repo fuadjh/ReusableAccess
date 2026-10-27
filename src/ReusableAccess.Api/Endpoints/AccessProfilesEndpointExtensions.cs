@@ -1,8 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using ReusableAccess.Domain.Entities;
+
 using ReusableAccess.Domain.Enums;
-using ReusableAccess.Infrastructure.Persistence;
+
 using MediatR;
 using ReusableAccess.Application.AccessProfiles;
 
