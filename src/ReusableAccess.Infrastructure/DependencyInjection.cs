@@ -7,12 +7,16 @@ namespace ReusableAccess.Infrastructure;
 
 using Microsoft.AspNetCore.Identity;
 using ReusableAccess.Application.Bundles;
+using ReusableAccess.Application.RolePermissions;
 using ReusableAccess.Application.Roles;
 using ReusableAccess.Application.Scopes;
+using ReusableAccess.Application.WorkItems;
 using ReusableAccess.Infrastructure.Bundles;
 using ReusableAccess.Infrastructure.Identity;
+using ReusableAccess.Infrastructure.RolePermissions;
 using ReusableAccess.Infrastructure.Roles;
 using ReusableAccess.Infrastructure.Scopes;
+using ReusableAccess.Infrastructure.WorkItems;
 
 public static class DependencyInjection
 {
@@ -39,6 +43,10 @@ public static class DependencyInjection
         services.AddScoped<IScopeReadStore, ScopeReadStore>();
         services.AddScoped<IScopeCommandStore, ScopeCommandStore>();
         services.AddScoped<IUserBundleCommandStore, UserBundleCommandStore>();
+        services.AddScoped<    IRolePermissionsQueryStore,    RolePermissionsQueryStore>();
+        services.AddScoped<    IRolePermissionsCommandStore,    RolePermissionsCommandStore>();
+        services.AddScoped<IWorkItemsQueryStore, WorkItemsQueryStore>();
+
         return services;
     }
 }

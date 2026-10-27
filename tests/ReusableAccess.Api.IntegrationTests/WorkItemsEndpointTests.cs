@@ -15,6 +15,7 @@ using ReusableAccess.Application;
 using ReusableAccess.Application.AccessProfiles;
 using ReusableAccess.Application.Roles;
 using ReusableAccess.Application.Scopes;
+using ReusableAccess.Application.WorkItems;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Domain.Enums;
 using ReusableAccess.Infrastructure.AccessProfiles;
@@ -22,6 +23,7 @@ using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.Persistence;
 using ReusableAccess.Infrastructure.Roles;
 using ReusableAccess.Infrastructure.Scopes;
+using ReusableAccess.Infrastructure.WorkItems;
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
@@ -331,7 +333,7 @@ internal sealed class ApiTestHost : IAsyncDisposable
         builder.Services.AddScoped<IRoleCommandStore, RoleCommandStore>();
         builder.Services.AddScoped<IScopeReadStore, ScopeReadStore>();
         builder.Services.AddScoped<IScopeCommandStore, ScopeCommandStore>();
-
+        builder.Services.AddScoped<    IWorkItemsQueryStore,    WorkItemsQueryStore>();
         var application = builder.Build();
 
         application.UseAuthentication();

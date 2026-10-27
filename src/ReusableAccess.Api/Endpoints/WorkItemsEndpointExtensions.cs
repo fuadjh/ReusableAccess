@@ -1,4 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using MediatR;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ReusableAccess.Application.WorkItems;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Domain.Enums;
 using ReusableAccess.Infrastructure.Persistence;
@@ -14,70 +17,50 @@ public static class WorkItemsEndpointExtensions
         this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet(
-            "/api/work-items",
-            async (
-                HttpContext context,
-                ApplicationDbContext dbContext,
-                CancellationToken cancellationToken) =>
+    "/api/work-items",
+    async (
+        HttpContext context,
+        [FromServices] ISender sender,
+        CancellationToken cancellationToken) =>
+    {
+        var modeValue =
+            context.Request.Headers[ActiveScopeModeHeader].ToString();
+
+        if (!TryParseScopeMode(modeValue, out var scopeMode))
+        {
+            return Results.BadRequest(
+                "X-Active-Scope-Mode باید selected یا all باشد.");
+        }
+
+        string? scopeCode = null;
+
+        if (scopeMode == ScopeSelectionMode.Selected)
+        {
+            scopeCode =
+                context.Request.Headers[ActiveScopeHeader].ToString();
+
+            if (string.IsNullOrWhiteSpace(scopeCode))
             {
-                var modeValue = context.Request.Headers[
-                    ActiveScopeModeHeader].ToString();
+                return Results.BadRequest("X-Active-Scope الزامی است.");
+            }
+        }
 
-                if (!TryParseScopeMode(modeValue, out var scopeMode))
-                {
-                    return Results.BadRequest(
-                        "X-Active-Scope-Mode باید selected یا all باشد.");
-                }
+        var items = await sender.Send(
+            new GetWorkItemsQuery(scopeMode, scopeCode),
+            cancellationToken);
 
-                var query = dbContext.Set<WorkItem>()
-                    .AsNoTracking();
+        if (items is null)
+        {
+            return Results.Forbid();
+        }
 
-                if (scopeMode == ScopeSelectionMode.Selected)
-                {
-                    var scopeCode = context.Request.Headers[
-                        ActiveScopeHeader].ToString();
+        var message = scopeMode == ScopeSelectionMode.All
+            ? "موارد کاری همهٔ محدوده‌های مجاز."
+            : "موارد کاری محدودهٔ فعال.";
 
-                    if (string.IsNullOrWhiteSpace(scopeCode))
-                    {
-                        return Results.BadRequest(
-                            "X-Active-Scope الزامی است.");
-                    }
-
-                    var scopeId = await dbContext.Set<AccessScope>()
-                        .Where(scope => scope.Code == scopeCode)
-                        .Select(scope => (Guid?)scope.Id)
-                        .SingleOrDefaultAsync(cancellationToken);
-
-                    if (!scopeId.HasValue)
-                    {
-                        return Results.Forbid();
-                    }
-
-                    query = query.Where(
-                        item => item.ScopeId == scopeId.Value);
-                }
-
-                var items = await query
-                    .OrderBy(item => item.Title)
-                    .Select(item => new
-                    {
-                        item.Id,
-                        item.Title,
-                        item.Status
-                    })
-                    .ToListAsync(cancellationToken);
-
-                var message = scopeMode == ScopeSelectionMode.All
-                    ? "موارد کاری همهٔ محدوده‌های مجاز."
-                    : "موارد کاری محدودهٔ فعال.";
-
-                return Results.Ok(new
-                {
-                    data = items,
-                    message
-                });
-            })
-            .RequireAuthorization("Permission:workitems.read");
+        return Results.Ok(new { data = items, message });
+    })
+    .RequireAuthorization("Permission:workitems.read");
 
         return endpoints;
     }

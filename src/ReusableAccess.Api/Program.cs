@@ -43,6 +43,10 @@ if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException(
         "Connection string 'DefaultConnection' is not configured.");
 }
+// اتصال و سرویس‌های Infrastructure
+builder.Services.AddInfrastructure(connectionString);
+builder.Services.AddReusableAccessAuthorization();
+
 
 // ۳) ثبت Authorization Server و اعتبارسنجی توکن در همین API
 builder.Services
@@ -82,74 +86,7 @@ builder.Services
         options.UseAspNetCore();
     });
 
-// ۴) کوکی ورود کاربر در خود Authorization Server
-builder.Services
-    .AddAuthentication()
-    .AddCookie(IdentityConstants.ApplicationScheme, options =>
-    {
-        options.Cookie.Name = ".ReusableAccess.Identity";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.LoginPath = "/Account/Login";
-    });
-
-// ۵) ثبت Infrastructure، دیتابیس و Identity
-builder.Services.AddInfrastructure(connectionString);
-
-builder.Services.AddReusableAccessAuthorization();
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<
-    IAuthorizationHandler,
-    PlatformSuperAdminAuthorizationHandler>();
-
-// ۷) Policyهای API:
-// AccessApi فقط scope پروتکلی را بررسی می‌کند.
-// Permission:diagnostics.read علاوه بر scope، permission دیتابیسی را هم بررسی می‌کند.
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("AccessApi", policy =>
-    {
-        policy
-            .AddAuthenticationSchemes(
-                OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
-            .RequireAuthenticatedUser()
-            .RequireAssertion(context =>
-                context.User.HasScope("access_api"));
-    });
-
-    options.AddPolicy("Permission:diagnostics.read", policy =>
-    {
-        policy
-            .AddAuthenticationSchemes(
-                OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
-            .RequireAuthenticatedUser()
-            .RequireAssertion(context =>
-                context.User.HasScope("access_api"))
-            .AddRequirements(
-                new PermissionRequirement("diagnostics.read"));
-    });
-    options.AddPolicy("Permission:workitems.read", policy =>
-    {
-        policy
-            .AddAuthenticationSchemes(
-                OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
-            .RequireAuthenticatedUser()
-            .RequireAssertion(context =>
-                context.User.HasScope("access_api"))
-            .AddRequirements(
-                new PermissionRequirement("workitems.read"));
-    });
-    options.AddPolicy("PlatformAdmin", policy =>
-    {
-        policy
-            .AddAuthenticationSchemes(
-                OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
-            .RequireAuthenticatedUser()
-            .RequireAssertion(context =>
-                context.User.HasScope("access_api"))
-            .AddRequirements(new PlatformSuperAdminRequirement());
-    });
-});
+builder.Services.AddReusableAccessApiAuthorization();
 
 var app = builder.Build();
 
