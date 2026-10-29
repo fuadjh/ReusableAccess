@@ -31,6 +31,15 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(connectionString)
             .UseOpenIddict<Guid>());
+        services.AddOpenIddict()
+    .AddCore(options =>
+    {
+        options
+            .UseEntityFrameworkCore()
+            .UseDbContext<ApplicationDbContext>()
+            .ReplaceDefaultEntities<Guid>();
+    });
+
         services
 
     .AddIdentityCore<ApplicationUser>()

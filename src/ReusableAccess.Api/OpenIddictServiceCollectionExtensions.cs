@@ -1,6 +1,6 @@
 ﻿using OpenIddict.Abstractions;
-using OpenIddict.Validation.AspNetCore;
-using ReusableAccess.Infrastructure.Persistence;
+
+
 
 namespace ReusableAccess.Api;
 
@@ -14,13 +14,7 @@ public static class OpenIddictServiceCollectionExtensions
 
         services
             .AddOpenIddict()
-            .AddCore(options =>
-            {
-                options
-                    .UseEntityFrameworkCore()
-                    .UseDbContext<ApplicationDbContext>()
-                    .ReplaceDefaultEntities<Guid>();
-            })
+           
             .AddServer(options =>
             {
                 options
