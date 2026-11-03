@@ -23,7 +23,19 @@ public sealed class WorkItem
         Title = title.Trim();
         Status = status.Trim();
     }
+    public void Update(string title, string status)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
 
+        if (title.Trim().Length > 200 ||
+            status is not ("Open" or "Closed"))
+        {
+            throw new ArgumentException("عنوان یا وضعیت معتبر نیست.");
+        }
+
+        Title = title.Trim();
+        Status = status;
+    }
     public Guid Id { get; private set; }
     public Guid ScopeId { get; private set; }
     public string Title { get; private set; } = string.Empty;

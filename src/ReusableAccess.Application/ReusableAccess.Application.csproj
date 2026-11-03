@@ -10,5 +10,7 @@
       <PackageReference Include="MediatR" Version="12.5.0" />
     <ProjectReference Include="..\ReusableAccess.Domain\ReusableAccess.Domain.csproj" />
   </ItemGroup>
-
+    <ItemGroup>
+        <ProjectReference Include="../ReusableAccess.Contracts/ReusableAccess.Contracts.csproj" />
+    </ItemGroup>
 </Project>

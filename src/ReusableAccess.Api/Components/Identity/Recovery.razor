@@ -1,0 +1,48 @@
+﻿@page "/Account/Recovery"
+@inject IAccountWorkflow Workflow
+
+<PageTitle>بازیابی گذرواژه</PageTitle>
+<h2>بازیابی حساب</h2>
+
+<AuthError Show="@(Error is not null)" />
+
+@if (_enabled)
+{
+    <p class="muted">
+        در صورت وجود حساب واجد شرایط، کد به کانال تأییدشدهٔ آن ارسال می‌شود.
+    </p>
+
+    <form method="post" action="/account/form/recovery"
+          class="ra-form" data-enhance="false">
+        <AntiforgeryToken />
+
+        <input type="hidden" name="returnUrl"
+               value="@AccountFormEndpoints.Local(ReturnUrl)" />
+
+        <label>
+            کد ملی
+            <input name="nationalId" maxlength="10"
+                   inputmode="numeric" autocomplete="username"
+                   required dir="ltr" />
+        </label>
+
+        <button type="submit">درخواست کد بازیابی</button>
+    </form>
+}
+else
+{
+    <p class="ra-alert">بازیابی گذرواژه توسط مدیر غیرفعال است.</p>
+}
+
+<a href="/Account/Login">بازگشت به ورود</a>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+
+    private bool _enabled;
+
+    protected override async Task OnInitializedAsync()
+        => _enabled = (await Workflow.OptionsAsync(
+            CancellationToken.None)).RecoveryEnabled;
+}

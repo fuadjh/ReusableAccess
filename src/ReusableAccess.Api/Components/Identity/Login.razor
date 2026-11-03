@@ -1,0 +1,73 @@
+﻿@page "/Account/Login"
+@inject IAccountWorkflow Workflow
+
+<PageTitle>ورود به حساب</PageTitle>
+
+<h2>خوش آمدید</h2>
+<p class="muted">با کد ملی و گذرواژهٔ خود وارد شوید.</p>
+
+<AuthError Show="@(Error is not null)" />
+
+@if (Done is not null)
+{
+    <p class="ra-success">
+        عملیات انجام شد؛ اکنون می‌توانید وارد شوید.
+        حساب جدید تا زمان تخصیص نقش، مجوزی ندارد.
+    </p>
+}
+
+<form method="post" action="/account/form/password"
+      class="ra-form" data-enhance="false">
+    <AntiforgeryToken />
+    <input type="hidden" name="returnUrl"
+           value="@AccountFormEndpoints.Local(ReturnUrl)" />
+
+    <label>
+        کد ملی
+        <input name="nationalId" inputmode="numeric" maxlength="10"
+               required autocomplete="username" dir="ltr" />
+    </label>
+
+    <label>
+        گذرواژه
+        <input name="password" type="password" maxlength="128"
+               required autocomplete="current-password" dir="ltr" />
+    </label>
+
+    <label class="ra-check">
+        <input type="checkbox" name="remember" />
+        مرا به خاطر بسپار
+    </label>
+
+    <button type="submit">ورود به حساب</button>
+</form>
+
+<div class="ra-links">
+    @if (_options?.RecoveryEnabled == true)
+    {
+        <a href="@($"/Account/Recovery?returnUrl={SafeReturn}")">
+            فراموشی گذرواژه
+        </a>
+    }
+
+    @if (_options?.RegistrationOpen == true)
+    {
+        <a href="@($"/Account/Register?returnUrl={SafeReturn}")">
+            ثبت‌نام عمومی
+        </a>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+    [SupplyParameterFromQuery] public string? Done { get; set; }
+
+    private PublicAuthOptions? _options;
+
+    private string SafeReturn => Uri.EscapeDataString(
+        AccountFormEndpoints.Local(ReturnUrl));
+
+    protected override async Task OnInitializedAsync()
+        => _options = await Workflow.OptionsAsync(CancellationToken.None);
+}

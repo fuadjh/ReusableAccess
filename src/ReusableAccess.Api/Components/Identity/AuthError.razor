@@ -1,0 +1,12 @@
+﻿@if (Show)
+{
+    <div class="ra-alert" role="alert">
+        درخواست انجام نشد؛ اطلاعات را بررسی کنید.
+        کد ممکن است نامعتبر، منقضی یا مصرف‌شده باشد.
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool Show { get; set; }
+}

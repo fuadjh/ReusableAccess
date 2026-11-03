@@ -1,0 +1,66 @@
+﻿@page "/Account/Reset"
+@inject IAccountWorkflow Workflow
+
+<PageTitle>گذرواژهٔ جدید</PageTitle>
+<h2>کد و گذرواژهٔ جدید</h2>
+
+<p class="muted">
+    اگر حساب واجد شرایط باشد، کد ارسال می‌شود.
+    کد تا ۵ دقیقه معتبر است.
+</p>
+
+<AuthError Show="@(Error is not null)" />
+
+@if (_enabled)
+{
+    <form method="post" action="/account/form/reset"
+          class="ra-form" data-enhance="false">
+        <AntiforgeryToken />
+
+        <input type="hidden" name="id" value="@Id" />
+        <input type="hidden" name="returnUrl"
+               value="@AccountFormEndpoints.Local(ReturnUrl)" />
+
+        <label>
+            کد تأیید
+            <input name="code" maxlength="6" inputmode="numeric"
+                   required dir="ltr" autocomplete="one-time-code" />
+        </label>
+
+        <label>
+            گذرواژهٔ جدید
+            <input name="password" type="password"
+                   minlength="12" maxlength="128"
+                   required autocomplete="new-password" />
+        </label>
+
+        <label>
+            تکرار گذرواژه
+            <input name="confirm" type="password"
+                   minlength="12" maxlength="128"
+                   required autocomplete="new-password" />
+        </label>
+
+        <p class="muted">
+            حداقل ۱۲ کاراکتر با حرف بزرگ، حرف کوچک، عدد و نشانه.
+        </p>
+
+        <button type="submit">تغییر گذرواژه</button>
+    </form>
+}
+else
+{
+    <p class="ra-alert">بازیابی گذرواژه غیرفعال است.</p>
+}
+
+@code {
+    [SupplyParameterFromQuery] public Guid Id { get; set; }
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+
+    private bool _enabled;
+
+    protected override async Task OnInitializedAsync()
+        => _enabled = (await Workflow.OptionsAsync(
+            CancellationToken.None)).RecoveryEnabled;
+}

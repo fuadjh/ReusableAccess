@@ -19,6 +19,7 @@ public sealed class ApplicationDbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        Completion.CompletionModel.Configure(modelBuilder);
         //==============Configuration============================
         modelBuilder.ApplyConfiguration(new RoleConfiguration());
         modelBuilder.ApplyConfiguration(new PermissionConfiguration());
@@ -44,4 +45,5 @@ public sealed class ApplicationDbContext
                 .IsUnique();
         });
     }
+
 }

@@ -47,6 +47,10 @@ public sealed class UserBundleCommandStore(
             scopeMode,
             command.ScopeIds!,
             command.SortOrder);
+        if (!command.IsEnabled)
+        {
+            bundle.Disable();
+        }
 
         dbContext.Set<UserAccessBundle>().Add(bundle);
         await dbContext.SaveChangesAsync(cancellationToken);

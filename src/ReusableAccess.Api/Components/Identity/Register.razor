@@ -1,0 +1,94 @@
+﻿@page "/Account/Register"
+@inject IAccountWorkflow Workflow
+
+<PageTitle>ثبت‌نام عمومی</PageTitle>
+<h2>ایجاد حساب</h2>
+
+@if (_open)
+{
+    <AuthError Show="@(Error is not null)" />
+
+    <form method="post" action="/account/form/register"
+          class="ra-form" data-enhance="false">
+        <AntiforgeryToken />
+        <input type="hidden" name="returnUrl"
+               value="@AccountFormEndpoints.Local(ReturnUrl)" />
+
+        <div class="ra-grid2">
+            <label>
+                نام
+                <input name="firstName" maxlength="100"
+                       required autocomplete="given-name" />
+            </label>
+            <label>
+                نام خانوادگی
+                <input name="lastName" maxlength="100"
+                       required autocomplete="family-name" />
+            </label>
+        </div>
+
+        <label>
+            کد سازمانی
+            <input name="organizationalCode" maxlength="50" required />
+        </label>
+
+        <label>
+            کد ملی / نام کاربری
+            <input name="nationalId" maxlength="10" inputmode="numeric"
+                   required dir="ltr" autocomplete="username" />
+        </label>
+
+        <label>
+            ایمیل
+            <input name="email" type="email" maxlength="256"
+                   required dir="ltr" autocomplete="email" />
+        </label>
+
+        <label>
+            موبایل
+            <input name="mobile" type="tel" maxlength="30"
+                   required dir="ltr" autocomplete="tel"
+                   placeholder="09… / +98…" />
+        </label>
+
+        <label>
+            گذرواژه
+            <input name="password" type="password"
+                   minlength="12" maxlength="128"
+                   required autocomplete="new-password" />
+        </label>
+
+        <label>
+            تکرار گذرواژه
+            <input name="confirm" type="password"
+                   minlength="12" maxlength="128"
+                   required autocomplete="new-password" />
+        </label>
+
+        <p class="muted">
+            حداقل ۱۲ کاراکتر شامل حرف بزرگ، حرف کوچک، عدد و نشانه.
+            ثبت‌نام به‌تنهایی هیچ نقشی به حساب نمی‌دهد.
+        </p>
+
+        <button type="submit">ثبت‌نام</button>
+    </form>
+}
+else
+{
+    <div class="ra-alert">ثبت‌نام عمومی در این زمان فعال نیست.</div>
+}
+
+<a href="@($"/Account/Login?returnUrl={Uri.EscapeDataString(AccountFormEndpoints.Local(ReturnUrl))}")">
+    بازگشت به ورود
+</a>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+
+    private bool _open;
+
+    protected override async Task OnInitializedAsync()
+        => _open = (await Workflow.OptionsAsync(
+            CancellationToken.None)).RegistrationOpen;
+}

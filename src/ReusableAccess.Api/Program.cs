@@ -1,5 +1,6 @@
 ﻿using ReusableAccess.Api;
 using ReusableAccess.Api.Authorization;
+using ReusableAccess.Api.Completion;
 using ReusableAccess.Api.Endpoints;
 using ReusableAccess.Application;
 using ReusableAccess.Infrastructure;
@@ -43,9 +44,23 @@ builder.Services.AddReusableAccessAuthorization();
 builder.Services.AddReusableAccessOpenIddict(apiResource);
 builder.Services.AddReusableAccessApiAuthorization();
 
+builder.Services.AddCompletionApi();
+
+builder.Services.AddCompletionDeployment(builder.Configuration,builder.Environment);
+builder.Services.AddReusableAccessOpenIddict( apiResource, builder.Configuration, builder.Environment);
+
 var app = builder.Build();
 
+await app.Services.BootstrapCompletionAdminAsync(app.Configuration);
 // همهٔ initializationهای زمان startup فقط از این نقطه اجرا می‌شوند.
 await app.InitializeReusableAccessAsync( clientSecret, apiResource);
+await app.Services.SeedCompletionCatalogAsync();
+
+await app.Services.SeedCompletionDemoAsync(
+    app.Configuration,
+    app.Environment);
+
 app.UseReusableAccessApi();
+app.MapCompletionEndpoints();
+app.MapCompletionPresentation();
 app.Run();

@@ -1,0 +1,30 @@
+﻿<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>خروج از حساب</title>
+    <link rel="stylesheet" href="/css/access-glass.css" />
+</head>
+<body>
+    <main class="ra-auth-wrap">
+        <section class="glass ra-card">
+            <h1>خروج از حساب</h1>
+            <p>
+                برای پایان‌دادن به نشست ورود و امکان ورود با حساب دیگر،
+                خروج را تأیید کنید.
+            </p>
+
+            <form method="post" action="@Action">
+                <AntiforgeryToken />
+                <button type="submit">تأیید خروج</button>
+            </form>
+        </section>
+    </main>
+</body>
+</html>
+
+@code {
+    [Parameter]
+    public string Action { get; set; } = "/connect/logout";
+}

@@ -1,0 +1,19 @@
+﻿<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <base href="/" />
+    <link rel="stylesheet" href="/css/access-glass.css" />
+    <HeadOutlet />
+</head>
+<body>
+    <Router AppAssembly="typeof(AuthApp).Assembly">
+        <Found Context="route">
+            <RouteView RouteData="route"
+                       DefaultLayout="typeof(AuthLayout)" />
+        </Found>
+    </Router>
+    <script src="/js/access-theme.js"></script>
+</body>
+</html>

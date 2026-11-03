@@ -56,7 +56,7 @@ public sealed class AuthorizationController : Controller
 
         if (user is null || !await _signInManager.CanSignInAsync(user))
         {
-            await _signInManager.SignOutAsync();
+            await HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
 
             return Challenge(
                 new AuthenticationProperties { RedirectUri = returnUrl },
@@ -69,10 +69,13 @@ public sealed class AuthorizationController : Controller
             roleType: Claims.Role);
 
         identity.SetClaim(Claims.Subject, userId!);
-
+        identity.SetClaim(
+    "ra_version",
+    user.SessionVersion.ToString(
+        System.Globalization.CultureInfo.InvariantCulture));
         var userName = await _userManager.GetUserNameAsync(user);
 
-        if (!string.IsNullOrWhiteSpace(userName))
+        if (user is null ||    !user.IsActive ||    user.MustChangePassword ||    !await _signInManager.CanSignInAsync(user))
         {
             identity.SetClaim(Claims.Name, userName);
         }
@@ -89,6 +92,7 @@ public sealed class AuthorizationController : Controller
         identity.SetResources(resources);
         identity.SetDestinations(claim => claim.Type switch
         {
+            "ra_version" => [Destinations.AccessToken],
             Claims.Subject =>
             [
                 Destinations.AccessToken,

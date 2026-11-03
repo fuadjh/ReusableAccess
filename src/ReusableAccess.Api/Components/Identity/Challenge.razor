@@ -1,0 +1,36 @@
+﻿@page "/Account/Challenge"
+
+<PageTitle>تأیید دومرحله‌ای</PageTitle>
+<h2>یک گام تا ورود</h2>
+
+<p class="muted">
+    کد شش‌رقمی ارسال‌شده به کانال حساب را وارد کنید.
+    اعتبار کد ۵ دقیقه است.
+</p>
+
+<AuthError Show="@(Error is not null)" />
+
+<form method="post" action="/account/form/challenge"
+      class="ra-form" data-enhance="false">
+    <AntiforgeryToken />
+
+    <input type="hidden" name="id" value="@Id" />
+    <input type="hidden" name="returnUrl"
+           value="@AccountFormEndpoints.Local(ReturnUrl)" />
+
+    <label>
+        کد تأیید
+        <input name="code" maxlength="6" inputmode="numeric"
+               required dir="ltr" autocomplete="one-time-code" />
+    </label>
+
+    <button type="submit">تأیید و ادامه</button>
+</form>
+
+<a href="/Account/Login">شروع دوبارهٔ ورود</a>
+
+@code {
+    [SupplyParameterFromQuery] public Guid Id { get; set; }
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+}

@@ -24,4 +24,8 @@
     <ProjectReference Include="..\ReusableAccess.Infrastructure\ReusableAccess.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Pages\Account\" />
+  </ItemGroup>
+
 </Project>

@@ -1,4 +1,5 @@
-﻿using ReusableAccess.Api.Endpoints;
+﻿using ReusableAccess.Api.Completion;
+using ReusableAccess.Api.Endpoints;
 
 namespace ReusableAccess.Api;
 
@@ -25,7 +26,9 @@ public static class ApiPipelineExtensions
 
         app.UseHttpsRedirection();
         app.UseAuthentication();
+        app.UseCompletionAccountGate();
         app.UseAuthorization();
+        
 
         app.MapControllers();
         app.MapRazorPages();

@@ -28,9 +28,12 @@ public static class DependencyInjection
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
 
-        services.AddDbContext<ApplicationDbContext>(options =>
+        services.AddDbContext<ApplicationDbContext>((sp, options) =>
             options.UseSqlServer(connectionString)
-            .UseOpenIddict<Guid>());
+            .UseOpenIddict<Guid>()
+.AddInterceptors(
+    sp.GetRequiredService<
+        ReusableAccess.Infrastructure.Completion.SecurityAuditInterceptor>()));
         services.AddOpenIddict()
     .AddCore(options =>
     {
@@ -53,10 +56,12 @@ public static class DependencyInjection
         services.AddScoped<IScopeReadStore, ScopeReadStore>();
         services.AddScoped<IScopeCommandStore, ScopeCommandStore>();
         services.AddScoped<IUserBundleCommandStore, UserBundleCommandStore>();
-        services.AddScoped<    IRolePermissionsQueryStore,    RolePermissionsQueryStore>();
-        services.AddScoped<    IRolePermissionsCommandStore,    RolePermissionsCommandStore>();
+        services.AddScoped<IRolePermissionsQueryStore,RolePermissionsQueryStore>();
+        services.AddScoped<IRolePermissionsCommandStore,RolePermissionsCommandStore>();
         services.AddScoped<IWorkItemsQueryStore, WorkItemsQueryStore>();
-        services.AddScoped<    IDevelopmentAccessSeeder,    DevelopmentAccessSeeder>();
+        services.AddScoped<IDevelopmentAccessSeeder,DevelopmentAccessSeeder>();
+
+        services.AddCompletionInfrastructure();
         return services;
     }
 }

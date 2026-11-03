@@ -34,13 +34,22 @@ public static class ApiStartupInitializationExtensions
             };
 
             descriptor.AddResourcePermissions(apiResource);
+            var webOrigin = new Uri(
+     app.Configuration["Hosting:WebOrigin"]
+     ?? "https://localhost:7136/");
+
             descriptor.RedirectUris.Add(
-                new Uri("https://localhost:7136/signin-oidc"));
+                new Uri(webOrigin, "signin-oidc"));
+
+            descriptor.PostLogoutRedirectUris.Add(
+                new Uri(webOrigin, "signout-callback-oidc"));
 
             descriptor.Permissions.Add(
                 OpenIddictConstants.Permissions.Endpoints.Authorization);
             descriptor.Permissions.Add(
                 OpenIddictConstants.Permissions.Endpoints.Token);
+            descriptor.Permissions.Add(
+    OpenIddictConstants.Permissions.Endpoints.EndSession);
             descriptor.Permissions.Add(
                 OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode);
             descriptor.Permissions.Add(

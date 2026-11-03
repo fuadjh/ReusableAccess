@@ -1,0 +1,42 @@
+﻿@page "/Account/ChangeRequired"
+
+<PageTitle>تعویض گذرواژهٔ موقت</PageTitle>
+<h2>گذرواژهٔ شخصی بسازید</h2>
+
+<p class="muted">
+    پیش از ورود باید گذرواژهٔ موقت را تعویض کنید.
+    حداقل ۱۲ کاراکتر با حرف بزرگ، حرف کوچک، عدد و نشانه.
+</p>
+
+<AuthError Show="@(Error is not null)" />
+
+<form method="post" action="/account/form/change-required"
+      class="ra-form" data-enhance="false">
+    <AntiforgeryToken />
+
+    <input type="hidden" name="id" value="@Id" />
+    <input type="hidden" name="returnUrl"
+           value="@AccountFormEndpoints.Local(ReturnUrl)" />
+
+    <label>
+        گذرواژهٔ جدید
+        <input name="password" type="password"
+               minlength="12" maxlength="128"
+               required autocomplete="new-password" />
+    </label>
+
+    <label>
+        تکرار گذرواژه
+        <input name="confirm" type="password"
+               minlength="12" maxlength="128"
+               required autocomplete="new-password" />
+    </label>
+
+    <button type="submit">ذخیره و ورود</button>
+</form>
+
+@code {
+    [SupplyParameterFromQuery] public Guid Id { get; set; }
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery] public string? Error { get; set; }
+}
