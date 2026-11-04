@@ -9,7 +9,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Remove="Components\Console\Notice.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Components\Console\Notice.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ReusableAccess.Contracts\ReusableAccess.Contracts.csproj" />
   </ItemGroup>
            
 </Project>

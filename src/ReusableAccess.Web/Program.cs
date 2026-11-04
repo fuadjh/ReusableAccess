@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using ReusableAccess.Web.Components;
 using ReusableAccess.Web.Infrastructure;
 using System.Text.Json;
+using ReusableAccess.Web.Completion;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -77,6 +78,7 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddCompletionWeb(builder.Configuration,builder.Environment);
 builder.Services.AddCascadingAuthenticationState();
 
 builder.Services
@@ -813,7 +815,7 @@ app.MapPut(
     .RequireAuthorization();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
-
+app.MapCompletionWebEndpoints();
 app.Run();
 
 

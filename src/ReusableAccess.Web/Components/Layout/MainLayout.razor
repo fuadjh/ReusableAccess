@@ -1,23 +1,52 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
+<div class="ra-shell">
+    <aside class="ra-sidebar glass">
+        <a class="ra-logo" href="/console" target="_top">
+            <span class="ra-mark">RA</span>
+            <span>
+                مدیریت دسترسی
+                <small>ReusableAccess</small>
+            </span>
+        </a>
         <NavMenu />
+    </aside>
+
+    <div class="ra-main">
+        <header class="ra-topbar glass">
+            <span>فضای مدیریت دسترسی</span>
+
+            <div class="ra-toolbar">
+                <a href="/access-profiles" target="_top">پروفایل فعال</a>
+
+                <button type="button" class="ra-ghost" data-theme-toggle>
+                    روشن / تیره
+                </button>
+
+                <AuthorizeView>
+                    <Authorized>
+                        <form action="/console/logout"
+                              method="post"
+                              data-enhance="false">
+                            <AntiforgeryToken />
+                            <button type="submit" class="ra-ghost">خروج</button>
+                        </form>
+                    </Authorized>
+                    <NotAuthorized>
+                        <a href="/account/login?returnUrl=/console" target="_top">
+                            ورود
+                        </a>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
+        </header>
+
+        <main class="ra-content">@Body</main>
     </div>
-
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+    ارتباط قطع شد یا خطایی رخ داد.
+    <a href="." class="reload">بارگذاری دوباره</a>
+    <span class="dismiss">×</span>
 </div>

@@ -1,0 +1,308 @@
+﻿@page "/console/assignments"
+@attribute [Authorize(Policy = "ConsoleAdmin")]
+@inherits ConsolePageBase
+
+<PageTitle>تخصیص دسترسی</PageTitle>
+<h1>تخصیص نقش در محدوده</h1>
+<Notice Error="Error" Success="Success" />
+
+<section class="glass ra-card">
+    <div class="ra-toolbar">
+        <input @bind="_query" placeholder="جست‌وجوی نام یا کد ملی" />
+        <button type="button" disabled="@Busy" @onclick="Search">جست‌وجو</button>
+    </div>
+
+    <div class="ra-chips">
+        @foreach (var user in _users)
+        {
+            <button type="button"
+                    class="ra-ghost"
+                    @onclick="() => Choose(user.UserId)">
+                @user.DisplayName · @user.NationalId
+            </button>
+        }
+    </div>
+
+    <p>کاربر انتخاب‌شده: <b>@(_user?.DisplayName ?? "انتخاب نشده")</b></p>
+</section>
+
+@if (_user is not null)
+{
+    <section class="glass ra-card mt">
+        <h2>تخصیص ساده</h2>
+        <p class="muted">
+            هر تخصیص ساده یک بستهٔ تک‌نقش و تک‌اسکوپ می‌سازد.
+        </p>
+
+        <div class="ra-grid2">
+            <label>
+                نقش
+                <select @bind="_role">
+                    <option value="">انتخاب</option>
+                    @foreach (var role in _roles)
+                    {
+                        <option value="@role.RoleId">@role.DisplayName</option>
+                    }
+                </select>
+            </label>
+
+            <label>
+                اسکوپ
+                <select @bind="_scope">
+                    <option value="">انتخاب</option>
+                    @foreach (var scope in _scopes)
+                    {
+                        <option value="@scope.ScopeId">@scope.DisplayName</option>
+                    }
+                </select>
+            </label>
+        </div>
+
+        <button type="button" disabled="@Busy" @onclick="Assign">
+            تخصیص دسترسی
+        </button>
+    </section>
+
+    <section class="glass ra-card mt">
+        <h2>بسته‌های دسترسی</h2>
+
+        @foreach (var bundle in _bundles)
+        {
+            <div class="ra-list-row">
+                <span>
+                    <b>@bundle.Name</b> ·
+                    @(bundle.IsEnabled ? "فعال" : "غیرفعال") ·
+                    @(bundle.ScopeMode == "all" ? "همهٔ محدوده‌ها" : "انتخاب‌شده")
+                </span>
+                <button class="ra-ghost"
+                        type="button"
+                        @onclick="() => Edit(bundle)">
+                    ویرایش
+                </button>
+            </div>
+        }
+
+        <button class="ra-ghost" type="button" @onclick="NewBundle">
+            بستهٔ پیشرفتهٔ جدید
+        </button>
+
+        @if (_advanced)
+        {
+            <hr />
+
+            <h3>تعریف بستهٔ پیشرفته</h3>
+            <p class="muted">
+                حالت «همه» شامل اسکوپ‌های آینده هم هست.
+                ساخت Bundle با قرارداد قدیمی، همان معنای جایگزینی تخصیص‌های
+                legacy را حفظ می‌کند.
+            </p>
+
+            <label>
+                نام بسته
+                <input @bind="_name" maxlength="200" />
+            </label>
+
+            <div class="ra-grid2">
+                <div>
+                    <h4>نقش‌ها</h4>
+                    @foreach (var role in _roles)
+                    {
+                        <label class="ra-check">
+                            <input type="checkbox"
+                                   checked="@_chosenRoles.Contains(role.RoleId)"
+                                   @onchange="e => CheckRole(role.RoleId, (bool)e.Value!)" />
+                            @role.DisplayName
+                        </label>
+                    }
+                </div>
+
+                <div>
+                    <label>
+                        حالت محدوده
+                        <select @bind="_mode">
+                            <option value="selected">انتخاب‌شده</option>
+                            <option value="all">همهٔ محدوده‌ها</option>
+                        </select>
+                    </label>
+
+                    @if (_mode == "selected")
+                    {
+                        @foreach (var scope in _scopes)
+                        {
+                            <label class="ra-check">
+                                <input type="checkbox"
+                                       checked="@_chosenScopes.Contains(scope.ScopeId)"
+                                       @onchange="e => CheckScope(scope.ScopeId, (bool)e.Value!)" />
+                                @scope.DisplayName
+                            </label>
+                        }
+                    }
+                </div>
+            </div>
+
+            <label>
+                ترتیب نمایش
+                <input type="number" min="0" @bind="_sort" />
+            </label>
+
+            <label class="ra-check">
+                <input type="checkbox" @bind="_enabled" />
+                فعال
+            </label>
+
+            <button type="button" disabled="@Busy" @onclick="SaveBundle">
+                ذخیرهٔ بسته
+            </button>
+
+            <button class="ra-ghost"
+                    type="button"
+                    @onclick="() => _advanced = false">
+                لغو
+            </button>
+        }
+    </section>
+}
+
+@code {
+    [SupplyParameterFromQuery]
+    public Guid? UserId { get; set; }
+
+    private List<UserRow> _users = [];
+    private UserRow? _user;
+    private List<RoleRow> _roles = [];
+    private List<ScopeRow> _scopes = [];
+    private List<BundleRow> _bundles = [];
+
+    private string _query = "", _role = "", _scope = "";
+    private string _name = "", _mode = "selected";
+    private bool _advanced, _enabled = true;
+    private Guid? _bundleId;
+    private int _sort;
+    private HashSet<Guid> _chosenRoles = [], _chosenScopes = [];
+
+    protected override Task OnInitializedAsync() => Run(async () =>
+    {
+        _roles = await Api.GetAsync<List<RoleRow>>("api/admin/roles");
+        _scopes = await Api.GetAsync<List<ScopeRow>>("api/admin/scopes");
+
+        if (UserId.HasValue)
+        {
+            await SelectUser(UserId.Value);
+        }
+    });
+
+    private Task Search() => Run(async () =>
+    {
+        _users = (await Api.GetAsync<PageResult<UserRow>>(
+            $"api/admin/users/manage?q={Uri.EscapeDataString(_query)}&page=1"
+        )).Items.ToList();
+    });
+
+    private async Task SelectUser(Guid id)
+    {
+        _user = await Api.GetAsync<UserRow>(
+            $"api/admin/users/{id}/details"
+        );
+
+        await LoadBundles();
+        _advanced = false;
+    }
+
+    private Task Choose(Guid id) => Run(() => SelectUser(id));
+
+    private async Task LoadBundles()
+        => _bundles = await Api.GetAsync<List<BundleRow>>(
+            $"api/admin/users/{_user!.UserId}/access-list"
+        );
+
+    private Task Assign() => Run(async () =>
+    {
+        if (!Guid.TryParse(_role, out var role) ||
+            !Guid.TryParse(_scope, out var scope))
+        {
+            throw new ConsoleApiException(400, "نقش و اسکوپ را انتخاب کنید.");
+        }
+
+        await Api.WriteAsync(
+            HttpMethod.Post,
+            $"api/admin/users/{_user!.UserId}/assign",
+            new { roleId = role, scopeId = scope }
+        );
+
+        await LoadBundles();
+    }, "تخصیص ذخیره شد.");
+
+    private void NewBundle()
+    {
+        _bundleId = null;
+        _name = "";
+        _mode = "selected";
+        _chosenRoles = [];
+        _chosenScopes = [];
+        _sort = 0;
+        _enabled = true;
+        _advanced = true;
+    }
+
+    private void Edit(BundleRow bundle)
+    {
+        _bundleId = bundle.BundleId;
+        _name = bundle.Name;
+        _mode = bundle.ScopeMode;
+        _chosenRoles = bundle.RoleIds.ToHashSet();
+        _chosenScopes = bundle.ScopeIds.ToHashSet();
+        _sort = bundle.SortOrder;
+        _enabled = bundle.IsEnabled;
+        _advanced = true;
+    }
+
+    private void CheckRole(Guid id, bool value)
+    {
+        if (value)
+        {
+            _chosenRoles.Add(id);
+        }
+        else
+        {
+            _chosenRoles.Remove(id);
+        }
+    }
+
+    private void CheckScope(Guid id, bool value)
+    {
+        if (value)
+        {
+            _chosenScopes.Add(id);
+        }
+        else
+        {
+            _chosenScopes.Remove(id);
+        }
+    }
+
+    private Task SaveBundle() => Run(async () =>
+    {
+        var body = new
+        {
+            name = _name,
+            roleIds = _chosenRoles.ToArray(),
+            scopeMode = _mode,
+            scopeIds = _mode == "all"
+                ? Array.Empty<Guid>()
+                : _chosenScopes.ToArray(),
+            sortOrder = _sort,
+            isEnabled = _enabled
+        };
+
+        await Api.WriteAsync(
+            _bundleId.HasValue ? HttpMethod.Put : HttpMethod.Post,
+            _bundleId.HasValue
+                ? $"api/admin/bundles/{_bundleId}"
+                : $"api/admin/users/{_user!.UserId}/bundles",
+            body
+        );
+
+        _advanced = false;
+        await LoadBundles();
+    }, "بسته ذخیره شد.");
+}

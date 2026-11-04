@@ -1,0 +1,195 @@
+﻿@page "/console/work-items"
+@attribute [Authorize(Policy = "Console:workitems.read")]
+@inherits ConsolePageBase
+
+<PageTitle>موارد کاری</PageTitle>
+<h1>موارد کاری</h1>
+<p class="muted">داده و عملیات بر اساس نقش و اسکوپ فعال بررسی می‌شوند.</p>
+<Notice Error="Error" Success="Success" />
+
+<section class="glass ra-card ra-table-wrap">
+    <div class="ra-toolbar">
+        <button class="ra-ghost"
+                type="button"
+                disabled="@Busy"
+                @onclick="() => Run(Load)">
+            تازه‌سازی
+        </button>
+        <a href="/access-profiles" target="_top">تغییر پروفایل فعال</a>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>عنوان</th>
+                <th>وضعیت</th>
+                <th>عملیات</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in _rows)
+            {
+                <tr>
+                    <td>@item.Title</td>
+                    <td>
+                        @(item.Status == "Open"
+                            ? "باز"
+                            : item.Status == "Closed"
+                                ? "بسته"
+                                : item.Status)
+                    </td>
+                    <td>
+                        @if (_canUpdate)
+                        {
+                            <button class="ra-ghost"
+                                    type="button"
+                                    @onclick="() => Edit(item)">
+                                ویرایش
+                            </button>
+                        }
+
+                        @if (_canDelete)
+                        {
+                            <button class="ra-ghost"
+                                    type="button"
+                                    @onclick="() => _pending = item.Id">
+                                حذف
+                            </button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (_pending.HasValue)
+    {
+        <div class="ra-alert">
+            حذف مورد کاری؟
+            <button type="button" disabled="@Busy" @onclick="Delete">تأیید</button>
+            <button class="ra-ghost"
+                    type="button"
+                    @onclick="() => _pending = null">
+                لغو
+            </button>
+        </div>
+    }
+</section>
+
+@if (_canCreate || (_id.HasValue && _canUpdate))
+{
+    <section class="glass ra-card mt">
+        <h2>@(_id.HasValue ? "ویرایش مورد کاری" : "ایجاد مورد کاری")</h2>
+
+        <label>
+            عنوان
+            <input @bind="_title" maxlength="200" />
+        </label>
+
+        <label>
+            وضعیت
+            <select @bind="_status">
+                <option value="Open">باز</option>
+                <option value="Closed">بسته</option>
+            </select>
+        </label>
+
+        @if (!_id.HasValue)
+        {
+            <label>
+                محدودهٔ مقصد
+                <select @bind="_scope">
+                    <option value="">انتخاب</option>
+                    @foreach (var scope in _scopes)
+                    {
+                        <option value="@scope.ScopeId">@scope.DisplayName</option>
+                    }
+                </select>
+            </label>
+        }
+
+        <button type="button" disabled="@Busy" @onclick="Save">ذخیره</button>
+        <button class="ra-ghost" type="button" @onclick="Clear">لغو ویرایش</button>
+    </section>
+}
+
+@code {
+    private List<WorkItemRow> _rows = [];
+    private List<ScopeRow> _scopes = [];
+    private bool _canCreate, _canUpdate, _canDelete;
+    private Guid? _id, _pending;
+    private string _title = "", _status = "Open", _scope = "";
+
+    protected override Task OnInitializedAsync() => Run(async () =>
+    {
+        _canCreate = await Api.AllowedAsync("workitems.create");
+        _canUpdate = await Api.AllowedAsync("workitems.update");
+        _canDelete = await Api.AllowedAsync("workitems.delete");
+
+        if (_canCreate)
+        {
+            _scopes = await Api.GetAsync<List<ScopeRow>>(
+                "api/console/writable-scopes",
+                true
+            );
+
+            if (_scopes.Count == 1)
+            {
+                _scope = _scopes[0].ScopeId.ToString();
+            }
+        }
+
+        await Load();
+    });
+
+    private async Task Load()
+        => _rows = await Api.GetAsync<List<WorkItemRow>>(
+            "api/console/work-items",
+            true
+        );
+
+    private void Edit(WorkItemRow item)
+    {
+        _id = item.Id;
+        _title = item.Title;
+        _status = item.Status;
+    }
+
+    private void Clear()
+    {
+        _id = null;
+        _title = "";
+        _status = "Open";
+    }
+
+    private Task Save() => Run(async () =>
+    {
+        var target = _id.HasValue
+            ? Guid.Empty
+            : Guid.TryParse(_scope, out var scope)
+                ? scope
+                : Guid.Empty;
+
+        await Api.WriteAsync(
+            _id.HasValue ? HttpMethod.Put : HttpMethod.Post,
+            _id.HasValue ? $"api/work-items/{_id}" : "api/work-items",
+            new WorkItemInput(target, _title, _status),
+            profile: true
+        );
+
+        Clear();
+        await Load();
+    }, "مورد کاری ذخیره شد.");
+
+    private Task Delete() => Run(async () =>
+    {
+        await Api.WriteAsync(
+            HttpMethod.Delete,
+            $"api/work-items/{_pending}",
+            profile: true
+        );
+
+        _pending = null;
+        await Load();
+    }, "مورد کاری حذف شد.");
+}

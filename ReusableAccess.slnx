@@ -5,7 +5,9 @@
   <Folder Name="/src/">
     <Project Path="src/ReusableAccess.Api/ReusableAccess.Api.csproj" />
     <Project Path="src/ReusableAccess.Application/ReusableAccess.Application.csproj" />
-    <Project Path="src/ReusableAccess.Contracts/ReusableAccess.Contracts.csproj" />
+    <Project Path="src/ReusableAccess.Contracts/ReusableAccess.Contracts.csproj">
+      <Build Solution="Debug|*" Project="false" />
+    </Project>
     <Project Path="src/ReusableAccess.Domain/ReusableAccess.Domain.csproj" />
     <Project Path="src/ReusableAccess.Infrastructure/ReusableAccess.Infrastructure.csproj" />
     <Project Path="src/ReusableAccess.Web/ReusableAccess.Web.csproj" />

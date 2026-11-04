@@ -1,0 +1,26 @@
+﻿@if (!string.IsNullOrEmpty(Error))
+{
+    <div class="ra-alert" role="alert">
+        @Error
+        <a href="/account/login?returnUrl=/console"
+           data-enhance-nav="false"
+           target="_top">
+            ورود دوباره
+        </a>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Success))
+{
+    <div class="ra-success" role="status">
+        @Success
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string? Error { get; set; }
+
+    [Parameter]
+    public string? Success { get; set; }
+}

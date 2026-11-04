@@ -1,0 +1,91 @@
+﻿@page "/console/audit"
+@attribute [Authorize(Policy = "ConsoleAdmin")]
+@inherits ConsolePageBase
+
+<PageTitle>تاریخچه تغییرات</PageTitle>
+<h1>تاریخچهٔ تغییرات</h1>
+
+<p class="muted">
+    شناسهٔ عامل، موجودیت و نام فیلدها ثبت می‌شوند؛
+    مقدار رمز، توکن، OTP و اطلاعات تماس در این گزارش ذخیره نمی‌شود.
+</p>
+
+<Notice Error="Error" Success="Success" />
+
+<section class="glass ra-card ra-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>زمان UTC</th>
+                <th>عامل</th>
+                <th>عملیات</th>
+                <th>موجودیت</th>
+                <th>فیلدها</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in _rows)
+            {
+                <tr>
+                    <td dir="ltr">
+                        @row.OccurredUtc.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss")
+                    </td>
+                    <td>
+                        <small>@(row.ActorId?.ToString() ?? "سیستم / عمومی")</small>
+                    </td>
+                    <td>@row.Action</td>
+                    <td>
+                        @row.Entity<br />
+                        <small>@row.EntityId</small>
+                    </td>
+                    <td>@row.ChangedFields</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="ra-toolbar">
+        <button type="button"
+                class="ra-ghost"
+                disabled="@(_page == 1 || Busy)"
+                @onclick="Previous">
+            قبلی
+        </button>
+        <span>صفحه @_page · مجموع @_total</span>
+        <button type="button"
+                class="ra-ghost"
+                disabled="@(_page * 30 >= _total || Busy)"
+                @onclick="Next">
+            بعدی
+        </button>
+    </div>
+</section>
+
+@code {
+    private IReadOnlyList<AuditRow> _rows = [];
+    private int _page = 1, _total;
+
+    protected override Task OnInitializedAsync() => Run(Load);
+
+    private async Task Load()
+    {
+        var result = await Api.GetAsync<PageResult<AuditRow>>(
+            $"api/admin/audit?page={_page}"
+        );
+
+        _rows = result.Items;
+        _total = result.Total;
+    }
+
+    private Task Previous()
+    {
+        _page--;
+        return Run(Load);
+    }
+
+    private Task Next()
+    {
+        _page++;
+        return Run(Load);
+    }
+}

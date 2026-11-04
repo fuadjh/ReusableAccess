@@ -1,0 +1,60 @@
+﻿@page "/console"
+@attribute [Authorize]
+
+<PageTitle>پنل مدیریت دسترسی</PageTitle>
+
+<header class="ra-page-head">
+    <div>
+        <p class="eyebrow">WORKSPACE</p>
+        <h1>مدیریت دسترسی</h1>
+        <p class="muted">کاربران، مجوزها و محیط آزمایش</p>
+    </div>
+    <a class="ra-button" href="/access-profiles" target="_top">
+        انتخاب پروفایل فعال
+    </a>
+</header>
+
+<div class="ra-grid3">
+    <AuthorizeView Policy="ConsoleAdmin">
+        <Authorized>
+            <a class="glass ra-card" href="/console/users" target="_top">
+                <span class="ra-icon">◎</span>
+                <h2>کاربران</h2>
+                <p class="muted">ایجاد، ویرایش و وضعیت حساب</p>
+            </a>
+
+            <a class="glass ra-card" href="/console/roles" target="_top">
+                <span class="ra-icon">◇</span>
+                <h2>نقش‌ها و مجوزها</h2>
+                <p class="muted">کاتالوگ مجوزها و نقش‌ها</p>
+            </a>
+
+            <a class="glass ra-card" href="/console/settings" target="_top">
+                <span class="ra-icon">⚙</span>
+                <h2>تنظیمات ورود</h2>
+                <p class="muted">ثبت‌نام زمان‌دار و روش ورود</p>
+            </a>
+        </Authorized>
+    </AuthorizeView>
+
+    <a class="glass ra-card" href="/console/security" target="_top">
+        <span class="ra-icon">⌁</span>
+        <h2>امنیت حساب من</h2>
+        <p class="muted">تأیید کانال و تغییر گذرواژه</p>
+    </a>
+</div>
+
+<section class="glass ra-card mt">
+    <h2>روش آزمایش</h2>
+    <ol>
+        <li>با ادمین نقش و اسکوپ بسازید.</li>
+        <li>مجوزهای نقش را انتخاب کنید.</li>
+        <li>نقش را در اسکوپ به کاربر تخصیص دهید.</li>
+        <li>از Web و Identity خارج و با کاربر آزمایشی وارد شوید.</li>
+        <li>پروفایل فعال و صفحات آزمایشی را بررسی کنید.</li>
+    </ol>
+    <p class="muted">
+        ادمین سراسری برای صفحات کسب‌وکار bypass خودکار ندارد؛
+        برای خودش هم نقش و اسکوپ تخصیص دهید.
+    </p>
+</section>

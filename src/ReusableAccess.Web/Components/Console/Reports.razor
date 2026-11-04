@@ -1,0 +1,46 @@
+﻿@page "/console/reports"
+@attribute [Authorize(Policy = "Console:reports.read")]
+@inherits ConsolePageBase
+
+<PageTitle>گزارش محدوده</PageTitle>
+<h1>گزارش موارد کاری</h1>
+<Notice Error="Error" Success="Success" />
+
+@if (_summary is not null)
+{
+    <div class="ra-grid3">
+        <article class="glass ra-card">
+            <p class="muted">مجموع</p>
+            <strong class="ra-number">@_summary.Total</strong>
+        </article>
+
+        <article class="glass ra-card">
+            <p class="muted">باز</p>
+            <strong class="ra-number">@_summary.Open</strong>
+        </article>
+
+        <article class="glass ra-card">
+            <p class="muted">بسته</p>
+            <strong class="ra-number">@_summary.Closed</strong>
+        </article>
+    </div>
+}
+
+<button class="ra-ghost mt"
+        type="button"
+        disabled="@Busy"
+        @onclick="() => Run(Load)">
+    تازه‌سازی
+</button>
+
+@code {
+    private ReportSummary? _summary;
+
+    protected override Task OnInitializedAsync() => Run(Load);
+
+    private async Task Load()
+        => _summary = await Api.GetAsync<ReportSummary>(
+            "api/reports/summary",
+            true
+        );
+}

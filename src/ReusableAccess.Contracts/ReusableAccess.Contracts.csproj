@@ -6,7 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../ReusableAccess.Domain/ReusableAccess.Domain.csproj" />
+        <ProjectReference Include="..\ReusableAccess.Domain\ReusableAccess.Domain.csproj" />
         
     </ItemGroup>
 </Project>

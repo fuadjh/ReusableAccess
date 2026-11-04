@@ -1,0 +1,158 @@
+﻿@page "/console/settings"
+@attribute [Authorize(Policy = "ConsoleAdmin")]
+@inherits ConsolePageBase
+@inject NavigationManager Navigation
+
+<PageTitle>تنظیمات احراز هویت</PageTitle>
+<h1>تنظیمات احراز هویت</h1>
+<Notice Error="Error" Success="Success" />
+
+@if (_policy is not null)
+{
+    <EditForm Model="_policy" OnValidSubmit="Save" FormName="auth-policy">
+        <section class="glass ra-card">
+            <h2>ثبت‌نام عمومی زمان‌دار</h2>
+
+            <label class="ra-check">
+                <InputCheckbox @bind-Value="_policy.PublicRegistrationEnabled" />
+                امکان ثبت‌نام عمومی
+            </label>
+
+            <p class="muted">
+                زمان‌ها میلادی و UTC هستند؛ شروع شامل و پایان خارج از بازه است.
+            </p>
+
+            <div class="ra-grid2">
+                <label>
+                    شروع بازه UTC
+                    <InputText type="datetime-local" @bind-Value="_start" />
+                </label>
+
+                <label>
+                    پایان بازه UTC
+                    <InputText type="datetime-local" @bind-Value="_end" />
+                </label>
+            </div>
+        </section>
+
+        <section class="glass ra-card mt">
+            <h2>روش ورود برای همه</h2>
+
+            <label>
+                روش احراز هویت
+                <InputSelect @bind-Value="_policy.LoginMode">
+                    <option value="@LoginMode.Password">کد ملی و گذرواژه</option>
+                    <option value="@LoginMode.PasswordAndEmail">گذرواژه و کد ایمیلی</option>
+                    <option value="@LoginMode.PasswordAndSms">گذرواژه و کد پیامکی</option>
+                </InputSelect>
+            </label>
+
+            <p class="muted">
+                دومرحله‌ای یعنی گذرواژه + کد؛ نه جایگزین‌کردن گذرواژه با پیامک.
+                تغییر روش، نشست‌های قبلی همه را باطل می‌کند.
+            </p>
+
+            <p>
+                سرویس ایمیل: @(_email ? "پیکربندی شده" : "پیکربندی نشده")
+                · پیامک: @(_sms ? "پیکربندی شده" : "پیکربندی نشده")
+            </p>
+
+            <a href="/console/security" target="_top">
+                ابتدا کانال ادمین را در امنیت حساب تأیید کنید.
+            </a>
+        </section>
+
+        <section class="glass ra-card mt">
+            <h2>فراموشی گذرواژه</h2>
+
+            <label class="ra-check">
+                <InputCheckbox @bind-Value="_policy.RecoveryEnabled" />
+                نمایش لینک و فعال‌سازی بازیابی برای همه
+            </label>
+
+            <label>
+                کانال بازیابی
+                <InputSelect @bind-Value="_policy.RecoveryChannel">
+                    <option value="@DeliveryChannel.Email">ایمیل تأییدشده</option>
+                    <option value="@DeliveryChannel.Sms">موبایل تأییدشده</option>
+                </InputSelect>
+            </label>
+
+            <p class="muted">
+                خاموش‌بودن گزینه، POST بازیابی را نیز می‌بندد.
+            </p>
+
+            <button type="submit" disabled="@Busy">ذخیره تنظیمات</button>
+        </section>
+    </EditForm>
+}
+
+@code {
+    private AuthSettingsInput? _policy;
+    private string _start = "", _end = "";
+    private bool _email, _sms;
+    private LoginMode _original;
+
+    protected override Task OnInitializedAsync() => Run(Load);
+
+    private async Task Load()
+    {
+        var view = await Api.GetAsync<SettingsView>("api/admin/access-settings");
+
+        _policy = view.Policy;
+        _original = _policy.LoginMode;
+        _email = view.EmailConfigured;
+        _sms = view.SmsConfigured;
+
+        _start = _policy.RegistrationStartsUtc?.UtcDateTime
+            .ToString("yyyy-MM-ddTHH:mm") ?? "";
+
+        _end = _policy.RegistrationEndsUtc?.UtcDateTime
+            .ToString("yyyy-MM-ddTHH:mm") ?? "";
+    }
+
+    private static DateTimeOffset? Utc(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (!DateTime.TryParseExact(
+                value,
+                "yyyy-MM-ddTHH:mm",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal |
+                System.Globalization.DateTimeStyles.AdjustToUniversal,
+                out var date))
+        {
+            throw new ConsoleApiException(400, "تاریخ معتبر نیست.");
+        }
+
+        return new DateTimeOffset(date);
+    }
+
+    private Task Save() => Run(async () =>
+    {
+        _policy!.RegistrationStartsUtc = Utc(_start);
+        _policy.RegistrationEndsUtc = Utc(_end);
+
+        await Api.WriteAsync(
+            HttpMethod.Put,
+            "api/admin/access-settings",
+            _policy
+        );
+
+        if (_original != _policy.LoginMode)
+        {
+            Navigation.NavigateTo(
+                "/account/login?returnUrl=/console/settings",
+                forceLoad: true
+            );
+        }
+        else
+        {
+            await Load();
+        }
+    }, "تنظیمات ذخیره شد.");
+}

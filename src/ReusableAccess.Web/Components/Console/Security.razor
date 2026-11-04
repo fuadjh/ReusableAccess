@@ -1,0 +1,137 @@
+﻿@page "/console/security"
+@attribute [Authorize]
+@inherits ConsolePageBase
+
+<PageTitle>امنیت حساب</PageTitle>
+<h1>امنیت حساب من</h1>
+<Notice Error="Error" Success="Success" />
+
+@if (_me is not null)
+{
+    <section class="glass ra-card">
+        <h2>تأیید کانال‌ها</h2>
+
+        <p>
+            ایمیل: @_me.Email ·
+            @(_me.EmailConfirmed ? "تأییدشده" : "تأییدنشده")
+        </p>
+        <p>
+            موبایل: @_me.Mobile ·
+            @(_me.MobileConfirmed ? "تأییدشده" : "تأییدنشده")
+        </p>
+
+        <div class="ra-toolbar">
+            <select @bind="_channel">
+                <option value="@DeliveryChannel.Email">ایمیل</option>
+                <option value="@DeliveryChannel.Sms">موبایل</option>
+            </select>
+
+            <button type="button" disabled="@Busy" @onclick="SendCode">
+                ارسال کد تأیید
+            </button>
+        </div>
+
+        @if (_challenge.HasValue)
+        {
+            <div class="ra-toolbar">
+                <input @bind="_code"
+                       inputmode="numeric"
+                       maxlength="6"
+                       placeholder="کد شش‌رقمی"
+                       autocomplete="one-time-code" />
+
+                <button type="button" disabled="@Busy" @onclick="Confirm">
+                    تأیید مالکیت
+                </button>
+            </div>
+        }
+    </section>
+}
+
+<section class="glass ra-card mt">
+    <h2>تغییر گذرواژه</h2>
+
+    <label>
+        گذرواژهٔ فعلی
+        <input type="password"
+               @bind="_current"
+               maxlength="128"
+               autocomplete="current-password" />
+    </label>
+
+    <label>
+        گذرواژهٔ جدید
+        <input type="password"
+               @bind="_next"
+               maxlength="128"
+               autocomplete="new-password" />
+    </label>
+
+    <label>
+        تکرار گذرواژه
+        <input type="password"
+               @bind="_confirm"
+               maxlength="128"
+               autocomplete="new-password" />
+    </label>
+
+    <p class="muted">
+        حداقل ۱۲ کاراکتر با حرف بزرگ، حرف کوچک، عدد و نشانه.
+        بعد از تغییر، دوباره وارد شوید.
+    </p>
+
+    <button type="button" disabled="@Busy" @onclick="ChangePassword">
+        تغییر گذرواژه
+    </button>
+</section>
+
+@code {
+    private UserRow? _me;
+    private DeliveryChannel _channel;
+    private Guid? _challenge;
+    private string _code = "", _current = "", _next = "", _confirm = "";
+
+    protected override Task OnInitializedAsync() => Run(Load);
+
+    private async Task Load()
+        => _me = await Api.GetAsync<UserRow>("api/account/me");
+
+    private Task SendCode() => Run(async () =>
+    {
+        var issued = await Api.PostAsync<ChallengeIssued>(
+            "api/account/contact/request",
+            new ContactRequest(_channel)
+        );
+
+        _challenge = issued.ChallengeId;
+    }, "کد ارسال شد.");
+
+    private Task Confirm() => Run(async () =>
+    {
+        await Api.WriteAsync(
+            HttpMethod.Post,
+            "api/account/contact/confirm",
+            new ChallengeAnswer(_challenge!.Value, _code)
+        );
+
+        _challenge = null;
+        _code = "";
+        await Load();
+    }, "کانال تأیید شد.");
+
+    private Task ChangePassword() => Run(async () =>
+    {
+        if (_next != _confirm)
+        {
+            throw new ConsoleApiException(400, "تکرار گذرواژه یکسان نیست.");
+        }
+
+        await Api.WriteAsync(
+            HttpMethod.Post,
+            "api/account/password",
+            new ChangePasswordInput(_current, _next)
+        );
+
+        _current = _next = _confirm = "";
+    }, "گذرواژه تغییر کرد؛ دوباره وارد شوید.");
+}

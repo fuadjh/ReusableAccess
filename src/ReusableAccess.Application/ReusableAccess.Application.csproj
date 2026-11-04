@@ -11,6 +11,6 @@
     <ProjectReference Include="..\ReusableAccess.Domain\ReusableAccess.Domain.csproj" />
   </ItemGroup>
     <ItemGroup>
-        <ProjectReference Include="../ReusableAccess.Contracts/ReusableAccess.Contracts.csproj" />
+        <ProjectReference Include="..\ReusableAccess.Contracts\ReusableAccess.Contracts.csproj" />
     </ItemGroup>
 </Project>

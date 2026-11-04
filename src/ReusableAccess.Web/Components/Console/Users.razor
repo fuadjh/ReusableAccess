@@ -1,0 +1,309 @@
+﻿@page "/console/users"
+@attribute [Authorize(Policy = "ConsoleAdmin")]
+@inherits ConsolePageBase
+@inject NavigationManager Navigation
+
+<PageTitle>مدیریت کاربران</PageTitle>
+<h1>کاربران</h1>
+<Notice Error="Error" Success="Success" />
+
+<section class="glass ra-card">
+    <div class="ra-toolbar">
+        <input @bind="_query" placeholder="نام، کد ملی یا کد سازمانی" />
+        <button type="button" disabled="@Busy" @onclick="Search">جست‌وجو</button>
+        <button type="button" class="ra-ghost" @onclick="New">کاربر جدید</button>
+    </div>
+
+    <div class="ra-table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>نام</th>
+                    <th>کد ملی</th>
+                    <th>کد سازمانی</th>
+                    <th>وضعیت</th>
+                    <th>عملیات</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in _rows)
+                {
+                    <tr>
+                        <td>
+                            @user.DisplayName
+                            @if (user.IsPlatformSuperAdmin)
+                            {
+                                <span class="ra-badge">ادمین</span>
+                            }
+                        </td>
+                        <td dir="ltr">@user.NationalId</td>
+                        <td>@user.OrganizationalCode</td>
+                        <td>@(user.IsActive ? "فعال" : "غیرفعال")</td>
+                        <td>
+                            <button type="button"
+                                    class="ra-ghost"
+                                    @onclick="() => Edit(user)">
+                                ویرایش
+                            </button>
+                            <button type="button"
+                                    class="ra-ghost"
+                                    @onclick="() => _pending = user">
+                                @(user.IsActive ? "غیرفعال‌سازی" : "فعال‌سازی")
+                            </button>
+                            <a href="@($"/console/assignments?userId={user.UserId}")"
+                               target="_top">
+                                دسترسی‌ها
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (_pending is not null)
+    {
+        <div class="ra-alert">
+            تغییر وضعیت حساب @_pending.DisplayName را تأیید می‌کنید؟
+            <button type="button" disabled="@Busy" @onclick="Toggle">تأیید</button>
+            <button type="button"
+                    class="ra-ghost"
+                    @onclick="() => _pending = null">
+                لغو
+            </button>
+        </div>
+    }
+
+    <div class="ra-toolbar">
+        <button type="button"
+                class="ra-ghost"
+                disabled="@(_page == 1 || Busy)"
+                @onclick="Previous">
+            قبلی
+        </button>
+        <span>صفحه @_page · مجموع @_total</span>
+        <button type="button"
+                class="ra-ghost"
+                disabled="@(_page * 20 >= _total || Busy)"
+                @onclick="Next">
+            بعدی
+        </button>
+    </div>
+</section>
+
+<section class="glass ra-card mt">
+    <h2>@(_editing is null ? "ایجاد کاربر" : "ویرایش کاربر")</h2>
+
+    <EditForm Model="_input" OnValidSubmit="Save" FormName="managed-user">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="ra-grid2">
+            <label>نام<InputText @bind-Value="_input.FirstName" /></label>
+            <label>نام خانوادگی<InputText @bind-Value="_input.LastName" /></label>
+            <label>کد سازمانی<InputText @bind-Value="_input.OrganizationalCode" /></label>
+
+            <label>
+                کد ملی / نام کاربری
+                <InputText @bind-Value="_input.NationalId"
+                           dir="ltr"
+                           readonly="@(_editing is not null && IdentityRules.IsValidNationalId(_editing.NationalId))" />
+            </label>
+
+            <label>
+                ایمیل
+                <InputText @bind-Value="_input.Email" type="email" dir="ltr" />
+            </label>
+
+            <label>
+                موبایل
+                <InputText @bind-Value="_input.Mobile" dir="ltr" />
+            </label>
+        </div>
+
+        @if (_editing is null)
+        {
+            <label>
+                گذرواژهٔ موقت
+                <InputText @bind-Value="_password"
+                           type="password"
+                           required
+                           minlength="12"
+                           maxlength="128"
+                           autocomplete="new-password" />
+            </label>
+
+            <p class="muted">
+                حداقل ۱۲ کاراکتر با حرف بزرگ، حرف کوچک، عدد و نشانه.
+                در اولین ورود باید تعویض شود.
+            </p>
+        }
+
+        <button type="submit" disabled="@Busy">ذخیره</button>
+    </EditForm>
+
+    @if (_editing is not null)
+    {
+        <hr />
+
+        <label>
+            گذرواژهٔ موقت جدید
+            <input @bind="_password"
+                   type="password"
+                   autocomplete="new-password"
+                   maxlength="128" />
+        </label>
+
+        <button type="button"
+                class="ra-ghost"
+                disabled="@Busy"
+                @onclick="ResetPassword">
+            بازنشانی گذرواژه و ابطال نشست‌ها
+        </button>
+    }
+</section>
+
+@code {
+    private List<UserRow> _rows = [];
+    private UserRow? _editing, _pending;
+    private UserProfileInput _input = new();
+    private string _password = "", _query = "";
+    private int _page = 1, _total;
+    private Guid _self;
+
+    protected override Task OnInitializedAsync() => Run(async () =>
+    {
+        _self = (await Api.GetAsync<UserRow>("api/account/me")).UserId;
+        await Load();
+    });
+
+    private async Task Load()
+    {
+        var result = await Api.GetAsync<PageResult<UserRow>>(
+            $"api/admin/users/manage?q={Uri.EscapeDataString(_query)}&page={_page}"
+        );
+
+        _rows = result.Items.ToList();
+        _total = result.Total;
+    }
+
+    private Task Search()
+    {
+        _page = 1;
+        return Run(Load);
+    }
+
+    private Task Previous()
+    {
+        _page--;
+        return Run(Load);
+    }
+
+    private Task Next()
+    {
+        _page++;
+        return Run(Load);
+    }
+
+    private void New()
+    {
+        _editing = null;
+        _input = new();
+        _password = "";
+    }
+
+    private void Edit(UserRow user)
+    {
+        _editing = user;
+        _input = new()
+        {
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            OrganizationalCode = user.OrganizationalCode,
+            NationalId = user.NationalId,
+            Email = user.Email,
+            Mobile = user.Mobile
+        };
+        _password = "";
+    }
+
+    private Task Save() => Run(async () =>
+    {
+        var self = _editing?.UserId == _self;
+
+        if (_editing is null)
+        {
+            await Api.WriteAsync(
+                HttpMethod.Post,
+                "api/admin/users",
+                new CreateUserInput
+                {
+                    FirstName = _input.FirstName,
+                    LastName = _input.LastName,
+                    OrganizationalCode = _input.OrganizationalCode,
+                    NationalId = _input.NationalId,
+                    Email = _input.Email,
+                    Mobile = _input.Mobile,
+                    Password = _password
+                }
+            );
+        }
+        else
+        {
+            await Api.WriteAsync(
+                HttpMethod.Put,
+                $"api/admin/users/{_editing.UserId}",
+                new UpdateUserInput
+                {
+                    FirstName = _input.FirstName,
+                    LastName = _input.LastName,
+                    OrganizationalCode = _input.OrganizationalCode,
+                    NationalId = _input.NationalId,
+                    Email = _input.Email,
+                    Mobile = _input.Mobile,
+                    ConcurrencyStamp = _editing.ConcurrencyStamp
+                }
+            );
+        }
+
+        New();
+
+        if (self)
+        {
+            Navigation.NavigateTo(
+                "/account/login?returnUrl=/console/users",
+                forceLoad: true
+            );
+            return;
+        }
+
+        await Load();
+    }, "اطلاعات ذخیره شد.");
+
+    private Task Toggle() => Run(async () =>
+    {
+        var user = _pending!;
+
+        await Api.WriteAsync(
+            HttpMethod.Put,
+            $"api/admin/users/{user.UserId}/active",
+            new ActiveUserInput(!user.IsActive, user.ConcurrencyStamp)
+        );
+
+        _pending = null;
+        await Load();
+    }, "وضعیت حساب تغییر کرد.");
+
+    private Task ResetPassword() => Run(async () =>
+    {
+        await Api.WriteAsync(
+            HttpMethod.Post,
+            $"api/admin/users/{_editing!.UserId}/reset-password",
+            new AdminPasswordInput(_password)
+        );
+
+        _password = "";
+        New();
+        await Load();
+    }, "گذرواژهٔ موقت تعیین شد.");
+}

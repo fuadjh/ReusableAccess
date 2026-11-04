@@ -1,0 +1,41 @@
+﻿@page "/console/diagnostics"
+@attribute [Authorize(Policy = "Console:diagnostics.read")]
+@inherits ConsolePageBase
+
+<PageTitle>آزمایش دسترسی</PageTitle>
+<h1>آزمایش دسترسی</h1>
+<Notice Error="Error" Success="Success" />
+
+<section class="glass ra-card">
+    <p>نقش فعال: <b dir="ltr">@_role</b></p>
+    <p>محدودهٔ فعال: <b>@_scope</b></p>
+
+    <button type="button" disabled="@Busy" @onclick="Test">
+        فراخوانی endpoint محافظت‌شده
+    </button>
+
+    @if (_result is not null)
+    {
+        <pre dir="ltr" class="ra-code">@_result</pre>
+    }
+</section>
+
+@code {
+    private string _role = "", _scope = "";
+    private string? _result;
+
+    protected override Task OnInitializedAsync() => Run(async () =>
+    {
+        var profile = await Api.ActiveProfileAsync();
+
+        _role = profile?.RoleCode ?? "انتخاب نشده";
+        _scope = profile?.ScopeMode == "all"
+            ? "همهٔ محدوده‌ها"
+            : profile?.ScopeCode ?? "انتخاب نشده";
+    });
+
+    private Task Test() => Run(async () =>
+    {
+        _result = await Api.RawAsync("api/diagnostics/protected", true);
+    }, "پاسخ مجاز از API دریافت شد.");
+}
