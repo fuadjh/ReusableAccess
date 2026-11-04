@@ -1,308 +1,684 @@
 ﻿@page "/console/assignments"
+@page "/admin/bundles"
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+@using ReusableAccess.Contracts
+@using ReusableAccess.Web.Completion
+
 @attribute [Authorize(Policy = "ConsoleAdmin")]
-@inherits ConsolePageBase
+@implements IDisposable
 
-<PageTitle>تخصیص دسترسی</PageTitle>
-<h1>تخصیص نقش در محدوده</h1>
-<Notice Error="Error" Success="Success" />
+@inject BundleManagementService Service
+@inject NavigationManager Navigation
+@inject ILogger<Assignments> Logger
 
-<section class="glass ra-card">
-    <div class="ra-toolbar">
-        <input @bind="_query" placeholder="جست‌وجوی نام یا کد ملی" />
-        <button type="button" disabled="@Busy" @onclick="Search">جست‌وجو</button>
-    </div>
+<PageTitle>مدیریت بسته‌های دسترسی</PageTitle>
 
-    <div class="ra-chips">
-        @foreach (var user in _users)
-        {
-            <button type="button"
-                    class="ra-ghost"
-                    @onclick="() => Choose(user.UserId)">
-                @user.DisplayName · @user.NationalId
-            </button>
-        }
-    </div>
+<h1>بسته‌ها و تخصیص دسترسی</h1>
+<p>کاربر را انتخاب کنید؛ سپس بستهٔ دسترسی را ایجاد یا ویرایش کنید.</p>
 
-    <p>کاربر انتخاب‌شده: <b>@(_user?.DisplayName ?? "انتخاب نشده")</b></p>
-</section>
-
-@if (_user is not null)
+@if (!string.IsNullOrEmpty(_error))
 {
-    <section class="glass ra-card mt">
-        <h2>تخصیص ساده</h2>
-        <p class="muted">
-            هر تخصیص ساده یک بستهٔ تک‌نقش و تک‌اسکوپ می‌سازد.
-        </p>
+    <div class="ra-alert" role="alert">@_error</div>
+}
 
-        <div class="ra-grid2">
-            <label>
-                نقش
-                <select @bind="_role">
-                    <option value="">انتخاب</option>
-                    @foreach (var role in _roles)
-                    {
-                        <option value="@role.RoleId">@role.DisplayName</option>
-                    }
-                </select>
+@if (!string.IsNullOrEmpty(_success))
+{
+    <div class="ra-success" role="status" aria-live="polite">
+        @_success
+    </div>
+}
+
+@if (_needsLogin)
+{
+    <p>
+        <a href="@LoginUrl"
+           target="_top"
+           data-enhance-nav="false">
+            ورود دوباره
+        </a>
+    </p>
+}
+
+@if (_busy || !_catalogsReady)
+{
+    <p role="status" aria-live="polite">
+        @(_busy ? "در حال انجام درخواست…" : "در انتظار بارگذاری…")
+    </p>
+}
+
+@if (!_busy && !_catalogsReady && !_needsLogin && !_forbidden)
+{
+    <button type="button" @onclick="RetryAsync">
+        تلاش دوباره
+    </button>
+}
+
+<section class="glass ra-card"
+         aria-busy="@(_busy ? "true" : "false")">
+    <fieldset disabled="@InputsDisabled">
+        <legend>جست‌وجوی کاربر</legend>
+
+        <form @onsubmit="SearchAsync" @onsubmit:preventDefault>
+            <label for="bundle-query">
+                نام یا نام کاربری / کد ملی
             </label>
 
-            <label>
-                اسکوپ
-                <select @bind="_scope">
-                    <option value="">انتخاب</option>
-                    @foreach (var scope in _scopes)
-                    {
-                        <option value="@scope.ScopeId">@scope.DisplayName</option>
-                    }
-                </select>
-            </label>
+            <input id="bundle-query"
+                   type="search"
+                   @bind="_query"
+                   maxlength="200" />
+
+            <button type="submit">جست‌وجو</button>
+        </form>
+
+        @if (_searched && _users.Count == 0)
+        {
+            <p role="status">کاربری پیدا نشد.</p>
+        }
+
+        <div class="ra-chips">
+            @foreach (var user in _users)
+            {
+                <button @key="user.UserId"
+                        type="button"
+                        @onclick="() => SelectAsync(user)">
+                    @user.DisplayName · @user.UserName
+                </button>
+            }
         </div>
 
-        <button type="button" disabled="@Busy" @onclick="Assign">
-            تخصیص دسترسی
-        </button>
-    </section>
-
-    <section class="glass ra-card mt">
-        <h2>بسته‌های دسترسی</h2>
-
-        @foreach (var bundle in _bundles)
+        @if (_searched && !_legacy)
         {
-            <div class="ra-list-row">
+            <p class="muted">
+                نتایج صفحهٔ اول جست‌وجو نمایش داده می‌شوند.
+            </p>
+        }
+    </fieldset>
+</section>
+
+@if (_selected is not null)
+{
+    <section class="glass ra-card mt">
+        <h2>کاربر: @_selected.DisplayName</h2>
+
+        <button type="button"
+                disabled="@InputsDisabled"
+                @onclick="RefreshAsync">
+            تازه‌سازی فهرست
+        </button>
+
+        @if (!_legacy)
+        {
+            <fieldset disabled="@InputsDisabled">
+                <legend>تخصیص ساده: یک نقش در یک محدوده</legend>
+
+                <label>
+                    نقش
+                    <select @bind="_simpleRole">
+                        <option value="">انتخاب نقش</option>
+                        @foreach (var role in _roles)
+                        {
+                            <option value="@role.RoleId">
+                                @role.DisplayName
+                            </option>
+                        }
+                    </select>
+                </label>
+
+                <label>
+                    محدوده
+                    <select @bind="_simpleScope">
+                        <option value="">انتخاب محدوده</option>
+                        @foreach (var scope in _scopes)
+                        {
+                            <option value="@scope.ScopeId">
+                                @scope.DisplayName
+                            </option>
+                        }
+                    </select>
+                </label>
+
+                <button type="button" @onclick="AssignAsync">
+                    تخصیص دسترسی
+                </button>
+            </fieldset>
+        }
+
+        <h3>بسته‌های دسترسی</h3>
+
+        @if (_bundles.Count == 0)
+        {
+            <p>بسته‌ای برای نمایش وجود ندارد.</p>
+        }
+
+        @foreach (var item in _bundles)
+        {
+            <div @key="item.BundleId" class="ra-list-row">
                 <span>
-                    <b>@bundle.Name</b> ·
-                    @(bundle.IsEnabled ? "فعال" : "غیرفعال") ·
-                    @(bundle.ScopeMode == "all" ? "همهٔ محدوده‌ها" : "انتخاب‌شده")
+                    @item.Name ·
+                    @(item.IsEnabled ? "فعال" : "غیرفعال") ·
+                    @(item.ScopeMode == "all"
+                        ? "همهٔ محدوده‌ها"
+                        : "محدوده‌های منتخب")
                 </span>
-                <button class="ra-ghost"
-                        type="button"
-                        @onclick="() => Edit(bundle)">
+
+                <button type="button"
+                        disabled="@InputsDisabled"
+                        @onclick="() => Edit(item)">
                     ویرایش
                 </button>
             </div>
         }
 
-        <button class="ra-ghost" type="button" @onclick="NewBundle">
-            بستهٔ پیشرفتهٔ جدید
+        <button type="button"
+                disabled="@InputsDisabled"
+                @onclick="NewBundle">
+            بستهٔ جدید
         </button>
+    </section>
 
-        @if (_advanced)
-        {
-            <hr />
+    @if (_showEditor)
+    {
+        <section class="glass ra-card mt">
+            <h2>
+                @(_editingId.HasValue ? "ویرایش بسته" : "ایجاد بسته")
+            </h2>
 
-            <h3>تعریف بستهٔ پیشرفته</h3>
             <p class="muted">
-                حالت «همه» شامل اسکوپ‌های آینده هم هست.
-                ساخت Bundle با قرارداد قدیمی، همان معنای جایگزینی تخصیص‌های
-                legacy را حفظ می‌کند.
+                در حالت «همه»، محدوده‌های آینده هم مشمول‌اند.
+                معنای قرارداد قدیمی ساخت بسته تغییر نمی‌کند.
             </p>
 
-            <label>
-                نام بسته
-                <input @bind="_name" maxlength="200" />
-            </label>
+            <EditForm Model="_editor"
+                      @key="_editor"
+                      FormName="bundle-editor"
+                      OnValidSubmit="SaveAsync">
 
-            <div class="ra-grid2">
-                <div>
-                    <h4>نقش‌ها</h4>
-                    @foreach (var role in _roles)
-                    {
-                        <label class="ra-check">
-                            <input type="checkbox"
-                                   checked="@_chosenRoles.Contains(role.RoleId)"
-                                   @onchange="e => CheckRole(role.RoleId, (bool)e.Value!)" />
-                            @role.DisplayName
-                        </label>
-                    }
-                </div>
+                <DataAnnotationsValidator />
+                <ValidationSummary />
 
-                <div>
+                <fieldset disabled="@InputsDisabled">
+                    <legend>اطلاعات بسته</legend>
+
                     <label>
-                        حالت محدوده
-                        <select @bind="_mode">
-                            <option value="selected">انتخاب‌شده</option>
-                            <option value="all">همهٔ محدوده‌ها</option>
-                        </select>
+                        نام بسته
+                        <InputText @bind-Value="_editor.Name"
+                                   maxlength="200" />
                     </label>
 
-                    @if (_mode == "selected")
+                    <h3>نقش‌ها</h3>
+
+                    @foreach (var role in _roles)
+                    {
+                        <label @key="role.RoleId" class="ra-check">
+                            <input type="checkbox"
+                                   checked="@_editor.RoleIds.Contains(role.RoleId)"
+                                   @onchange="e => Toggle(_editor.RoleIds, role.RoleId, e)" />
+
+                            @role.DisplayName (@role.RoleCode)
+                        </label>
+                    }
+
+                    <label>
+                        حالت محدوده
+                        <InputSelect @bind-Value="_editor.ScopeMode">
+                            <option value="selected">
+                                محدوده‌های انتخابی
+                            </option>
+                            <option value="all">
+                                همهٔ محدوده‌ها
+                            </option>
+                        </InputSelect>
+                    </label>
+
+                    @if (_editor.ScopeMode == "selected")
                     {
                         @foreach (var scope in _scopes)
                         {
-                            <label class="ra-check">
+                            <label @key="scope.ScopeId" class="ra-check">
                                 <input type="checkbox"
-                                       checked="@_chosenScopes.Contains(scope.ScopeId)"
-                                       @onchange="e => CheckScope(scope.ScopeId, (bool)e.Value!)" />
-                                @scope.DisplayName
+                                       checked="@_editor.ScopeIds.Contains(scope.ScopeId)"
+                                       @onchange="e => Toggle(_editor.ScopeIds, scope.ScopeId, e)" />
+
+                                @scope.DisplayName (@scope.ScopeCode)
                             </label>
                         }
                     }
-                </div>
-            </div>
 
-            <label>
-                ترتیب نمایش
-                <input type="number" min="0" @bind="_sort" />
-            </label>
+                    <label>
+                        ترتیب نمایش
+                        <InputNumber @bind-Value="_editor.SortOrder"
+                                     min="0" />
+                    </label>
 
-            <label class="ra-check">
-                <input type="checkbox" @bind="_enabled" />
-                فعال
-            </label>
+                    <label class="ra-check">
+                        <InputCheckbox @bind-Value="_editor.IsEnabled" />
+                        فعال
+                    </label>
 
-            <button type="button" disabled="@Busy" @onclick="SaveBundle">
-                ذخیرهٔ بسته
-            </button>
+                    <button type="submit">
+                        @(_editingId.HasValue
+                            ? "ذخیرهٔ تغییرات"
+                            : "ایجاد بسته")
+                    </button>
 
-            <button class="ra-ghost"
-                    type="button"
-                    @onclick="() => _advanced = false">
-                لغو
-            </button>
-        }
-    </section>
+                    <button type="button" @onclick="CancelEdit">
+                        لغو ویرایش
+                    </button>
+                </fieldset>
+            </EditForm>
+        </section>
+    }
 }
 
 @code {
-    [SupplyParameterFromQuery]
-    public Guid? UserId { get; set; }
+    [SupplyParameterFromQuery(Name = "userId")]
+    public string? UserId { get; set; }
 
-    private List<UserRow> _users = [];
-    private UserRow? _user;
     private List<RoleRow> _roles = [];
     private List<ScopeRow> _scopes = [];
+    private List<UserRow> _users = [];
     private List<BundleRow> _bundles = [];
 
-    private string _query = "", _role = "", _scope = "";
-    private string _name = "", _mode = "selected";
-    private bool _advanced, _enabled = true;
-    private Guid? _bundleId;
-    private int _sort;
-    private HashSet<Guid> _chosenRoles = [], _chosenScopes = [];
+    private UserRow? _selected;
+    private BundleEditorModel _editor = new();
+    private Guid? _editingId;
 
-    protected override Task OnInitializedAsync() => Run(async () =>
+    private string _query = "";
+    private string _simpleRole = "";
+    private string _simpleScope = "";
+
+    private string? _error;
+    private string? _success;
+    private string? _parameterStamp;
+
+    private bool _legacy;
+    private bool _busy;
+    private bool _catalogsReady;
+    private bool _showEditor;
+    private bool _searched;
+    private bool _pendingParameters;
+    private bool _disposed;
+    private bool _needsLogin;
+    private bool _forbidden;
+
+    // پاسخ مربوط به مسیر یا انتخاب منسوخ نباید state جدید را تغییر دهد.
+    private int _generation;
+
+    private bool InputsDisabled =>
+        _busy || !_catalogsReady || _needsLogin || _forbidden;
+
+    private string LoginUrl =>
+        "/account/login?returnUrl=" +
+        Uri.EscapeDataString(
+            "/" + Navigation.ToBaseRelativePath(Navigation.Uri));
+
+    protected override void OnParametersSet()
     {
-        _roles = await Api.GetAsync<List<RoleRow>>("api/admin/roles");
-        _scopes = await Api.GetAsync<List<ScopeRow>>("api/admin/scopes");
+        var route = Navigation
+            .ToBaseRelativePath(Navigation.Uri)
+            .Split(new[] { '?', '#' }, 2)[0]
+            .TrimEnd('/');
 
-        if (UserId.HasValue)
-        {
-            await SelectUser(UserId.Value);
-        }
-    });
+        var legacy = route.Equals(
+            "admin/bundles",
+            StringComparison.OrdinalIgnoreCase);
 
-    private Task Search() => Run(async () =>
-    {
-        _users = (await Api.GetAsync<PageResult<UserRow>>(
-            $"api/admin/users/manage?q={Uri.EscapeDataString(_query)}&page=1"
-        )).Items.ToList();
-    });
+        var stamp = $"{legacy}:{UserId}";
 
-    private async Task SelectUser(Guid id)
-    {
-        _user = await Api.GetAsync<UserRow>(
-            $"api/admin/users/{id}/details"
-        );
+        if (_parameterStamp == stamp)
+            return;
 
-        await LoadBundles();
-        _advanced = false;
+        _parameterStamp = stamp;
+        _legacy = legacy;
+        _generation++;
+
+        _pendingParameters = true;
+        _selected = null;
+        _bundles = [];
+        _users = [];
+        _query = "";
+        _searched = false;
+        _showEditor = false;
+        _error = null;
+        _success = null;
     }
 
-    private Task Choose(Guid id) => Run(() => SelectUser(id));
-
-    private async Task LoadBundles()
-        => _bundles = await Api.GetAsync<List<BundleRow>>(
-            $"api/admin/users/{_user!.UserId}/access-list"
-        );
-
-    private Task Assign() => Run(async () =>
+    // این متد در prerender اجرا نمی‌شود.
+    // خواندن اولیه فقط بعد از تعاملی‌شدن صفحه انجام می‌شود؛ بدون JS.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!Guid.TryParse(_role, out var role) ||
-            !Guid.TryParse(_scope, out var scope))
+        if (!_pendingParameters || _busy || _disposed)
+            return;
+
+        _pendingParameters = false;
+
+        var requestedUser = UserId;
+        var legacy = _legacy;
+
+        await RunAsync(async generation =>
         {
-            throw new ConsoleApiException(400, "نقش و اسکوپ را انتخاب کنید.");
+            if (!_catalogsReady)
+            {
+                var roles = await Service.RolesAsync();
+                var scopes = await Service.ScopesAsync();
+
+                if (!Current(generation))
+                    return;
+
+                _roles = roles;
+                _scopes = scopes;
+                _catalogsReady = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(requestedUser))
+                return;
+
+            if (!Guid.TryParse(requestedUser, out var id) ||
+                id == Guid.Empty)
+            {
+                throw new ValidationException(
+                    "شناسهٔ کاربر در نشانی معتبر نیست.");
+            }
+
+            var user = await Service.UserAsync(id);
+            var items = await Service.ListAsync(id, legacy);
+
+            if (Current(generation))
+                SetSelection(user, items);
+        });
+    }
+
+    private Task RetryAsync()
+    {
+        _pendingParameters = true;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private Task SearchAsync() => RunAsync(async generation =>
+    {
+        var text = _query.Trim();
+
+        if (text.Length < 2)
+        {
+            throw new ValidationException(
+                "برای جست‌وجو حداقل دو حرف وارد کنید.");
         }
 
-        await Api.WriteAsync(
-            HttpMethod.Post,
-            $"api/admin/users/{_user!.UserId}/assign",
-            new { roleId = role, scopeId = scope }
-        );
+        var users = await Service.SearchAsync(text, _legacy);
 
-        await LoadBundles();
-    }, "تخصیص ذخیره شد.");
+        if (!Current(generation))
+            return;
+
+        _users = users;
+        _searched = true;
+    });
+
+    private Task SelectAsync(UserRow user) =>
+        RunAsync(async generation =>
+        {
+            var items = await Service.ListAsync(
+                user.UserId,
+                _legacy);
+
+            if (Current(generation))
+                SetSelection(user, items);
+        });
+
+    private void SetSelection(
+        UserRow user,
+        List<BundleRow> items)
+    {
+        _selected = user;
+        _bundles = items;
+        _simpleRole = "";
+        _simpleScope = "";
+        _editor = new();
+        _editingId = null;
+        _showEditor = _legacy;
+    }
+
+    private Task RefreshAsync() => RunAsync(async generation =>
+    {
+        if (_selected is null)
+            return;
+
+        var items = await Service.ListAsync(
+            _selected.UserId,
+            _legacy);
+
+        if (Current(generation))
+            _bundles = items;
+    });
 
     private void NewBundle()
     {
-        _bundleId = null;
-        _name = "";
-        _mode = "selected";
-        _chosenRoles = [];
-        _chosenScopes = [];
-        _sort = 0;
-        _enabled = true;
-        _advanced = true;
+        if (InputsDisabled)
+            return;
+
+        _editor = new();
+        _editingId = null;
+        _showEditor = true;
+        _error = null;
+        _success = null;
     }
 
-    private void Edit(BundleRow bundle)
+    private void Edit(BundleRow item)
     {
-        _bundleId = bundle.BundleId;
-        _name = bundle.Name;
-        _mode = bundle.ScopeMode;
-        _chosenRoles = bundle.RoleIds.ToHashSet();
-        _chosenScopes = bundle.ScopeIds.ToHashSet();
-        _sort = bundle.SortOrder;
-        _enabled = bundle.IsEnabled;
-        _advanced = true;
-    }
+        if (InputsDisabled)
+            return;
 
-    private void CheckRole(Guid id, bool value)
-    {
-        if (value)
+        // کپی‌کردن DTO باعث می‌شود لغو ویرایش، دادهٔ فهرست را تغییر ندهد.
+        _editor = new BundleEditorModel
         {
-            _chosenRoles.Add(id);
-        }
-        else
-        {
-            _chosenRoles.Remove(id);
-        }
-    }
-
-    private void CheckScope(Guid id, bool value)
-    {
-        if (value)
-        {
-            _chosenScopes.Add(id);
-        }
-        else
-        {
-            _chosenScopes.Remove(id);
-        }
-    }
-
-    private Task SaveBundle() => Run(async () =>
-    {
-        var body = new
-        {
-            name = _name,
-            roleIds = _chosenRoles.ToArray(),
-            scopeMode = _mode,
-            scopeIds = _mode == "all"
-                ? Array.Empty<Guid>()
-                : _chosenScopes.ToArray(),
-            sortOrder = _sort,
-            isEnabled = _enabled
+            Name = item.Name ?? "",
+            RoleIds = (item.RoleIds ?? []).ToHashSet(),
+            ScopeMode = item.ScopeMode,
+            ScopeIds = (item.ScopeIds ?? []).ToHashSet(),
+            SortOrder = item.SortOrder,
+            IsEnabled = item.IsEnabled
         };
 
-        await Api.WriteAsync(
-            _bundleId.HasValue ? HttpMethod.Put : HttpMethod.Post,
-            _bundleId.HasValue
-                ? $"api/admin/bundles/{_bundleId}"
-                : $"api/admin/users/{_user!.UserId}/bundles",
-            body
-        );
+        _editingId = item.BundleId;
+        _showEditor = true;
+        _error = null;
+        _success = null;
+    }
 
-        _advanced = false;
-        await LoadBundles();
-    }, "بسته ذخیره شد.");
+    private void CancelEdit()
+    {
+        if (InputsDisabled)
+            return;
+
+        _editor = new();
+        _editingId = null;
+        _showEditor = _legacy;
+        _error = null;
+        _success = null;
+    }
+
+    private static void Toggle(
+        HashSet<Guid> values,
+        Guid id,
+        ChangeEventArgs args)
+    {
+        if (args.Value is true)
+            values.Add(id);
+        else
+            values.Remove(id);
+    }
+
+    private Task SaveAsync() => RunAsync(async generation =>
+    {
+        var user = _selected ??
+            throw new ValidationException(
+                "ابتدا کاربر را انتخاب کنید.");
+
+        var legacy = _legacy;
+        var editing = _editingId.HasValue;
+
+        await Service.SaveAsync(
+            user.UserId,
+            _editingId,
+            _editor);
+
+        if (!Current(generation))
+            return;
+
+        _success = editing
+            ? "تغییرات بسته ذخیره شد."
+            : "بسته ایجاد شد.";
+
+        _editor = new();
+        _editingId = null;
+        _showEditor = legacy;
+
+        await RefreshAfterWriteAsync(
+            user.UserId,
+            legacy,
+            generation);
+    }, writing: true);
+
+    private Task AssignAsync() => RunAsync(async generation =>
+    {
+        var user = _selected ??
+            throw new ValidationException(
+                "ابتدا کاربر را انتخاب کنید.");
+
+        if (!Guid.TryParse(_simpleRole, out var role) ||
+            !Guid.TryParse(_simpleScope, out var scope))
+        {
+            throw new ValidationException(
+                "نقش و محدوده را انتخاب کنید.");
+        }
+
+        var legacy = _legacy;
+
+        await Service.AssignAsync(
+            user.UserId,
+            role,
+            scope);
+
+        if (!Current(generation))
+            return;
+
+        _success = "تخصیص ذخیره شد.";
+
+        await RefreshAfterWriteAsync(
+            user.UserId,
+            legacy,
+            generation);
+    }, writing: true);
+
+    private async Task RefreshAfterWriteAsync(
+        Guid id,
+        bool legacy,
+        int generation)
+    {
+        try
+        {
+            var items = await Service.ListAsync(id, legacy);
+
+            if (Current(generation))
+                _bundles = items;
+        }
+        catch (Exception error)
+        {
+            if (!Current(generation))
+                return;
+
+            // ذخیره قبلاً موفق بوده؛ شکست خواندن نباید باعث ثبت دوباره شود.
+            _error =
+                "ذخیره انجام شد، اما فهرست تازه نشد. " +
+                "درخواست ثبت را تکرار نکنید؛ فهرست را تازه‌سازی کنید.";
+
+            SetAuthFailure(error);
+
+            Logger.LogWarning(
+                "Bundle list refresh failed ({ErrorType}).",
+                error.GetType().Name);
+        }
+    }
+
+    private bool Current(int generation) =>
+        !_disposed && generation == _generation;
+
+    private void SetAuthFailure(Exception error)
+    {
+        if (error is not ConsoleApiException apiError)
+            return;
+
+        _needsLogin = apiError.StatusCode == 401;
+        _forbidden = apiError.StatusCode == 403;
+    }
+
+    private async Task RunAsync(
+        Func<int, Task> action,
+        bool writing = false)
+    {
+        if (_busy || _disposed || _needsLogin || _forbidden)
+            return;
+
+        var generation = _generation;
+
+        _busy = true;
+        _error = null;
+        _success = null;
+
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await action(generation);
+        }
+        catch (ValidationException error)
+        {
+            if (Current(generation))
+                _error = error.Message;
+        }
+        catch (ConsoleApiException error)
+        {
+            if (!Current(generation))
+                return;
+
+            SetAuthFailure(error);
+
+            _error = writing && error.StatusCode >= 500
+                ? "نتیجهٔ ثبت قطعی نیست. ابتدا فهرست را بررسی کنید و سپس دربارهٔ ارسال مجدد تصمیم بگیرید."
+                : error.Message;
+        }
+        catch (Exception error)
+        {
+            if (!Current(generation))
+                return;
+
+            _error = writing
+                ? "نتیجهٔ عملیات مشخص نیست؛ پیش از ثبت مجدد، فهرست را تازه‌سازی کنید."
+                : "دریافت اطلاعات با خطا روبه‌رو شد؛ دوباره تلاش کنید.";
+
+            // متن استثنا ممکن است دادهٔ حساس داشته باشد؛ فقط نوع ثبت می‌شود.
+            Logger.LogError(
+                "Bundle operation failed ({ErrorType}).",
+                error.GetType().Name);
+        }
+        finally
+        {
+            _busy = false;
+
+            if (!_disposed)
+                await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _generation++;
+
+        // ConsoleApi فعلی CancellationToken ندارد.
+        // این guard نتیجهٔ دیررس را کنار می‌گذارد، نه اینکه شبکه را لغو کند.
+    }
 }

@@ -8,13 +8,7 @@
     <UserSecretsId>8de4c671-d5ec-47f3-a9f8-bcc201416dec</UserSecretsId>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Content Remove="Components\Console\Notice.razor" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="Components\Console\Notice.razor" />
-  </ItemGroup>
+  
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.12" />

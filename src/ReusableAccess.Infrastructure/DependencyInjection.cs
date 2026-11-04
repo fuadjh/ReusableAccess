@@ -11,12 +11,14 @@ using ReusableAccess.Application.RolePermissions;
 using ReusableAccess.Application.Roles;
 using ReusableAccess.Application.Scopes;
 using ReusableAccess.Application.Seeding;
+using ReusableAccess.Application.Users;
 using ReusableAccess.Application.WorkItems;
 using ReusableAccess.Infrastructure.Bundles;
 using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.RolePermissions;
 using ReusableAccess.Infrastructure.Roles;
 using ReusableAccess.Infrastructure.Scopes;
+using ReusableAccess.Infrastructure.Users;
 using ReusableAccess.Infrastructure.WorkItems;
 
 public static class DependencyInjection
@@ -60,6 +62,12 @@ public static class DependencyInjection
         services.AddScoped<IRolePermissionsCommandStore,RolePermissionsCommandStore>();
         services.AddScoped<IWorkItemsQueryStore, WorkItemsQueryStore>();
         services.AddScoped<IDevelopmentAccessSeeder,DevelopmentAccessSeeder>();
+
+        // Handler جست‌وجوی کاربران به این Store وابسته است.
+        services.AddScoped<IUserSearchStore, UserSearchStore>();
+
+        // Handler خواندن بسته‌های کاربر به این Store وابسته است.
+        services.AddScoped<IUserBundlesQueryStore, UserBundlesQueryStore>();
 
         services.AddCompletionInfrastructure();
         return services;

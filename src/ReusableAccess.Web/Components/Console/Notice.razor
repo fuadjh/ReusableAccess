@@ -1,20 +1,24 @@
-﻿@if (!string.IsNullOrEmpty(Error))
+﻿@namespace ReusableAccess.Web.Components.Console
+@using Microsoft.AspNetCore.Components
+
+@if (!string.IsNullOrWhiteSpace(Error))
 {
-    <div class="ra-alert" role="alert">
-        @Error
+    <section class="ra-alert" role="alert">
+        <p>@Error</p>
+
         <a href="/account/login?returnUrl=/console"
-           data-enhance-nav="false"
-           target="_top">
+           target="_top"
+           data-enhance-nav="false">
             ورود دوباره
         </a>
-    </div>
+    </section>
 }
 
-@if (!string.IsNullOrEmpty(Success))
+@if (!string.IsNullOrWhiteSpace(Success))
 {
-    <div class="ra-success" role="status">
+    <p class="ra-success" role="status" aria-live="polite">
         @Success
-    </div>
+    </p>
 }
 
 @code {

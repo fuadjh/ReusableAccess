@@ -60,23 +60,43 @@ builder.Services
     })
     .AddOpenIdConnect(options =>
     {
-        options.Authority = "https://localhost:7042/";
+        var configuredAuthority =
+            builder.Configuration["Authentication:OpenIddict:Authority"];
+
+        if (!Uri.TryCreate(
+                configuredAuthority,
+                UriKind.Absolute,
+                out var authorityUri)
+            || authorityUri.Scheme != Uri.UriSchemeHttps
+            || !string.IsNullOrEmpty(authorityUri.UserInfo)
+            || !string.IsNullOrEmpty(authorityUri.Query)
+            || !string.IsNullOrEmpty(authorityUri.Fragment))
+        {
+            throw new InvalidOperationException(
+                "Authentication:OpenIddict:Authority must be a valid HTTPS base URL.");
+        }
+
+        // آدرس از همان مرحلهٔ Configure درست تعیین می‌شود.
+        // تنظیمات داخلی OIDC سپس MetadataAddress را از همین مقدار می‌سازد.
+        options.Authority =
+            authorityUri.AbsoluteUri.TrimEnd('/') + "/";
+
+        options.RequireHttpsMetadata = true;
+
         options.ClientId = "ReusableAccess.Web";
         options.ClientSecret = clientSecret;
-
         options.ResponseType = "code";
         options.UsePkce = true;
 
-        // توکن‌ها در ticket سمت‌سرور ذخیره می‌شوند؛
-        // مرورگر فقط کوکی نشست را دریافت می‌کند.
+        // توکن‌ها در ticket سمت سرور می‌مانند.
         options.SaveTokens = true;
 
         options.Scope.Add("profile");
         options.Scope.Add("access_api");
+
         options.MapInboundClaims = false;
         options.TokenValidationParameters.NameClaimType = "name";
     });
-
 builder.Services.AddAuthorization();
 builder.Services.AddCompletionWeb(builder.Configuration,builder.Environment);
 builder.Services.AddCascadingAuthenticationState();
@@ -95,6 +115,19 @@ builder.Services.AddHttpClient("Api", client =>
 });
 
 var app = builder.Build();
+if (app.Environment.IsDevelopment())
+{
+    var oidcOptions = app.Services
+        .GetRequiredService<
+            Microsoft.Extensions.Options.IOptionsMonitor<
+                OpenIdConnectOptions>>()
+        .Get(OpenIdConnectDefaults.AuthenticationScheme);
+
+    app.Logger.LogInformation(
+        "OIDC Authority: {Authority}; MetadataAddress: {MetadataAddress}",
+        oidcOptions.Authority,
+        oidcOptions.MetadataAddress);
+}
 
 if (!app.Environment.IsDevelopment())
 {

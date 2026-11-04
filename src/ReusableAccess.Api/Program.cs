@@ -1,4 +1,5 @@
-﻿using ReusableAccess.Api;
+﻿using Microsoft.AspNetCore.Identity;
+using ReusableAccess.Api;
 using ReusableAccess.Api.Authorization;
 using ReusableAccess.Api.Completion;
 using ReusableAccess.Api.Endpoints;
@@ -40,6 +41,13 @@ if (string.IsNullOrWhiteSpace(connectionString))
 
 // ثبت Infrastructure و سرویس‌های امنیتی
 builder.Services.AddInfrastructure(connectionString);
+
+// AddIdentityCore و AddSignInManager در Infrastructure ثبت شده‌اند.
+// Handlerهای Cookie موردنیاز ورود تعاملی API را اینجا اضافه می‌کنیم.
+builder.Services
+    .AddAuthentication()
+    .AddIdentityCookies();
+
 builder.Services.AddReusableAccessAuthorization();
 builder.Services.AddReusableAccessOpenIddict(apiResource);
 builder.Services.AddReusableAccessApiAuthorization();

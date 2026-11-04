@@ -1,0 +1,24 @@
+﻿@page "/signed-out"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@layout ReusableAccess.Web.Components.Layout.PublicLayout
+
+<PageTitle>پایان خروج</PageTitle>
+
+<section style="width:100%;max-width:440px;text-align:center;
+    padding:36px;border-radius:24px;background:#ffffffdd;
+    border:1px solid white;
+    box-shadow:0 20px 60px #0f172a12">
+    <div aria-hidden="true" style="font-size:36px;color:#0f766e">✓</div>
+    <h1 style="font-size:24px;margin:16px 0">فرایند خروج پایان یافت</h1>
+    <p style="color:#475569;line-height:1.9">
+        برای ادامه می‌توانید دوباره وارد حساب شوید.
+    </p>
+    @* ورود فقط با اقدام کاربر شروع می‌شود. *@
+    <a href="/account/login"
+       data-enhance-nav="false"
+       style="display:inline-block;margin-top:16px;padding:12px 24px;
+        border-radius:12px;background:#0f766e;color:white;
+        text-decoration:none">
+        ورود دوباره
+    </a>
+</section>

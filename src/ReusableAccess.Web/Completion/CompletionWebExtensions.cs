@@ -39,6 +39,7 @@ public static class CompletionWebExtensions
                 CookieAuthenticationDefaults.AuthenticationScheme);
 
         services.AddScoped<ConsoleApi>();
+        services.AddScoped<BundleManagementService>();
         services.AddScoped<IAuthorizationHandler, ApiPermissionHandler>();
 
         services.AddAuthorization(o =>
@@ -86,15 +87,7 @@ public static class CompletionWebExtensions
             dp.ProtectKeysWithCertificate(cert);
         }
 
-        services.PostConfigure<OpenIdConnectOptions>(
-            OpenIdConnectDefaults.AuthenticationScheme, o =>
-            {
-                o.Authority =
-                    config["Authentication:OpenIddict:Authority"]
-                    ?? "https://localhost:7042/";
-
-                o.RequireHttpsMetadata = true;
-            });
+       
 
         services.PostConfigure<CookieAuthenticationOptions>(
             CookieAuthenticationDefaults.AuthenticationScheme, o =>
