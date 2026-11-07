@@ -1,0 +1,22 @@
+﻿<section class="ra-modern">
+    <header class="ra-page-header">
+        <div>
+            <MudText Typo="Typo.h5" HtmlTag="h1">@Title</MudText>
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    @Description
+                </MudText>
+            }
+        </div>
+        <div class="ra-page-actions">@Actions</div>
+    </header>
+    @ChildContent
+</section>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

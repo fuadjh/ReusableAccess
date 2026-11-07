@@ -1,0 +1,77 @@
+﻿@inherits UiPageBase
+
+<AppEditDialog Visible="@Visible" VisibleChanged="VisibleChanged"
+               Title="حساب کاربری من"
+               Model="@_input" Busy="@Busy"
+               CanSave="@(_ready && !Unavailable)"
+               Opened="Load" OnSave="Save">
+    <AppError Error="@Error" NeedsLogin="@NeedsLogin" />
+
+    <MudTextField T="string" @bind-Value="_input.FirstName"
+                  For="@(() => _input.FirstName)" Label="نام"
+                  Immediate="true" Variant="Variant.Outlined" Disabled="@Busy" />
+    <MudTextField T="string" @bind-Value="_input.LastName"
+                  For="@(() => _input.LastName)" Label="نام خانوادگی"
+                  Immediate="true" Variant="Variant.Outlined" Disabled="@Busy" />
+
+    <MudTextField T="string" Value="@_me?.NationalId"
+                  Label="کد ملی / نام کاربری" ReadOnly="true"
+                  Variant="Variant.Outlined" />
+    <MudTextField T="string" Value="@_me?.OrganizationalCode"
+                  Label="کد سازمانی" ReadOnly="true" Variant="Variant.Outlined" />
+    <MudTextField T="string" Value="@_me?.Email"
+                  Label="ایمیل" ReadOnly="true" Variant="Variant.Outlined" />
+    <MudTextField T="string" Value="@_me?.Mobile"
+                  Label="موبایل" ReadOnly="true" Variant="Variant.Outlined" />
+
+    <MudAlert Severity="Severity.Info" Variant="Variant.Text" Class="mt-3">
+        تغییر شناسه‌های سازمانی و کانال‌های ورود از ویرایش نام جداست.
+        تأیید ایمیل و موبایل از بخش امنیت حساب انجام می‌شود.
+    </MudAlert>
+</AppEditDialog>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public EventCallback Saved { get; set; }
+
+    private UserRow? _me;
+    private UpdateOwnNamesInput _input = new();
+    private bool _ready;
+
+    private Task Load()
+    {
+        _ready = false;
+        _input = new();
+
+        return Run(async () =>
+        {
+            var me = await Api.GetAsync<UserRow>("api/account/me");
+            if (IsDisposed || !Visible)
+                return;
+
+            _me = me;
+            _input = new()
+            {
+                FirstName = me.FirstName,
+                LastName = me.LastName,
+                ConcurrencyStamp = me.ConcurrencyStamp
+            };
+            _ready = true;
+        }, current: () => Visible);
+    }
+
+    private Task Save() => Run(async () =>
+    {
+        if (!_ready)
+            throw new ValidationException("اطلاعات حساب هنوز دریافت نشده است.");
+
+        await Api.WriteAsync(HttpMethod.Put, "api/account/me", _input);
+        if (IsDisposed)
+            return;
+
+        Snackbar.Add("اطلاعات حساب ذخیره شد.", Severity.Success);
+        await VisibleChanged.InvokeAsync(false);
+        await Saved.InvokeAsync();
+    }, writing: true);
+}

@@ -19,18 +19,7 @@
 <h1>بسته‌ها و تخصیص دسترسی</h1>
 <p>کاربر را انتخاب کنید؛ سپس بستهٔ دسترسی را ایجاد یا ویرایش کنید.</p>
 
-@if (!string.IsNullOrEmpty(_error))
-{
-    <div class="ra-alert" role="alert">@_error</div>
-}
-
-@if (!string.IsNullOrEmpty(_success))
-{
-    <div class="ra-success" role="status" aria-live="polite">
-        @_success
-    </div>
-}
-
+<Notice Error="@_error" Success="@_success" />
 @if (_needsLogin)
 {
     <p>

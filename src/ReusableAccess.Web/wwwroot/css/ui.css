@@ -1,0 +1,118 @@
+﻿.ra-layout {
+    background: transparent;
+    min-height: 100vh;
+}
+
+.ra-appbar.mud-appbar,
+.ra-drawer.mud-drawer {
+    background: var(--glass);
+    color: var(--ink);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+}
+
+.ra-drawer.mud-drawer {
+    border-radius: 0 0 0 22px;
+}
+
+.ra-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+}
+
+.ra-page-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ra-surface.mud-paper,
+.ra-table.mud-table,
+.ra-modal.mud-dialog {
+    background: var(--glass);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    box-shadow: var(--shadow);
+}
+
+.ra-account-popover.mud-popover {
+    width: 360px;
+    max-width: calc(100vw - 24px);
+    background: var(--ra-popup);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    backdrop-filter: blur(22px);
+}
+
+.ra-account-name {
+    max-width: 190px;
+}
+
+.ra-account-current {
+    max-width: 190px;
+    font-size: .68rem;
+    color: var(--muted);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.ra-option-caption {
+    display: block;
+    color: var(--muted);
+    font-size: .75rem;
+}
+
+.ra-form-fields {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+}
+
+    .ra-form-fields > .mud-input-control {
+        margin-bottom: 15px;
+    }
+
+.ra-dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+}
+
+.ra-permission-group {
+    margin: 20px 0;
+}
+
+    .ra-permission-group .mud-input-control-boolean-input {
+        margin: 4px 0;
+    }
+
+.mud-snackbar {
+    border-radius: 14px;
+}
+
+@media(max-width:600px) {
+    .ra-app-title {
+        display: none;
+    }
+
+    .ra-account-name, .ra-account-current {
+        max-width: 150px;
+    }
+
+    .ra-dialog-footer {
+        flex-wrap: wrap;
+    }
+}

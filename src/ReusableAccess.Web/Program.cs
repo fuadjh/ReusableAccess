@@ -7,6 +7,7 @@ using ReusableAccess.Web.Components;
 using ReusableAccess.Web.Infrastructure;
 using System.Text.Json;
 using ReusableAccess.Web.Completion;
+using ReusableAccess.Web.Ui;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -113,7 +114,7 @@ builder.Services.AddHttpClient("Api", client =>
 {
     client.BaseAddress = new Uri(apiBaseAddress);
 });
-
+builder.Services.AddReusableAccessUi();
 var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
@@ -544,7 +545,7 @@ app.MapPut(
     })
     .RequireAuthorization();
 app.UseAntiforgery();
-
+app.MapReusableAccessUiEndpoints();
 app.MapStaticAssets();
 
 app.MapGet(

@@ -1,0 +1,106 @@
+﻿
+@inject AccessCatalogService Catalog
+
+<AppEditDialog Visible="@Visible" VisibleChanged="VisibleChanged"
+               Title="@($"مجوزهای {RoleName}")"
+               Width="MaxWidth.Medium"
+               Model="@_model" Busy="@Busy"
+               CanSave="@(_ready && !Unavailable)"
+               Opened="Load" OnSave="Save">
+    <AppError Error="@Error" NeedsLogin="@NeedsLogin" />
+
+    <MudTextField T="string" @bind-Value="_query"
+                  Label="جست‌وجوی کلید، توضیح یا گروه"
+                  Variant="Variant.Outlined" Immediate="true"
+                  Disabled="@Busy" />
+
+    <MudText Typo="Typo.caption" Class="mt-3">
+        انتخاب‌شده: @_model.Items.Count(x => x.IsSelected)
+        از @_model.Items.Count
+    </MudText>
+
+    @foreach (var group in _model.Items.Where(Matches)
+        .GroupBy(x => string.IsNullOrWhiteSpace(x.Category) ? "سایر" : x.Category))
+    {
+        <section class="ra-permission-group">
+            <MudText Typo="Typo.subtitle1">@group.Key</MudText>
+            @foreach (var permission in group)
+            {
+                <MudCheckBox T="bool" @key="permission.Key"
+                             @bind-Value="permission.IsSelected"
+                             Disabled="@Busy" Color="Color.Primary">
+                    <span dir="ltr">@permission.Key</span>
+                    <span> — @permission.Description</span>
+                </MudCheckBox>
+            }
+        </section>
+    }
+
+    @if (_ready && !_model.Items.Any(Matches))
+    {
+        <MudAlert Severity="Severity.Info" Class="mt-4">
+            مجوزی مطابق جست‌وجو پیدا نشد.
+        </MudAlert>
+    }
+</AppEditDialog>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public Guid RoleId { get; set; }
+    [Parameter] public string RoleName { get; set; } = "نقش انتخاب‌شده";
+
+    private sealed class PermissionSelection
+    {
+        public List<PermissionRow> Items { get; set; } = [];
+    }
+
+    private PermissionSelection _model = new();
+    private string? _query;
+    private bool _ready;
+
+    private Task Load()
+    {
+        _ready = false;
+        _query = "";
+        _model = new();
+
+        var id = RoleId;
+        return Run(async () =>
+        {
+            if (id == Guid.Empty)
+                throw new ValidationException("شناسهٔ نقش معتبر نیست.");
+
+            // فهرست کامل دریافت می‌شود؛ فیلتر فقط نمایشی است.
+            var items = await Catalog.PermissionsAsync(id);
+            if (!IsDisposed && Visible && RoleId == id)
+            {
+                _model.Items = items;
+                _ready = true;
+            }
+        }, current: () => Visible && RoleId == id);
+    }
+
+    private bool Matches(PermissionRow item) =>
+        string.IsNullOrWhiteSpace(_query) ||
+        $"{item.Key} {item.Description} {item.Category}"
+            .Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private Task Save() => Run(async () =>
+    {
+        if (!_ready)
+            throw new ValidationException("فهرست مجوزها هنوز دریافت نشده است.");
+
+        var id = RoleId;
+        // انتخاب‌های پنهان‌شده با جست‌وجو هم باید در درخواست باقی بمانند.
+        var keys = _model.Items.Where(x => x.IsSelected)
+            .Select(x => x.Key).ToArray();
+
+        await Catalog.SavePermissionsAsync(id, keys);
+        if (!IsDisposed)
+        {
+            Snackbar.Add("مجوزهای نقش ذخیره شد.", Severity.Success);
+            await VisibleChanged.InvokeAsync(false);
+        }
+    }, writing: true);
+}

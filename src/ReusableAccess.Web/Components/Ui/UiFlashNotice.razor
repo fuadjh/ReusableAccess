@@ -1,0 +1,33 @@
+﻿@using Microsoft.AspNetCore.WebUtilities
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+@code {
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        var query = QueryHelpers.ParseQuery(
+            Navigation.ToAbsoluteUri(Navigation.Uri).Query);
+
+        if (!query.TryGetValue("ra_notice", out var values))
+            return;
+
+        var notice = values.ToString() switch
+        {
+            "profile-selected" => ("دسترسی فعال تغییر کرد.", Severity.Success),
+            "profile-denied" => ("این دسترسی دیگر قابل انتخاب نیست.", Severity.Error),
+            "profile-failed" => ("تغییر دسترسی انجام نشد؛ وضعیت را دوباره بررسی کنید.", Severity.Error),
+            _ => ((string?)null, Severity.Info)
+        };
+
+        if (notice.Item1 is null)
+            return;
+
+        Snackbar.Add(notice.Item1, notice.Item2);
+        Navigation.NavigateTo(
+            Navigation.GetUriWithQueryParameter("ra_notice", (string?)null),
+            replace: true);
+    }
+}

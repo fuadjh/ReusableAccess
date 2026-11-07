@@ -1,4 +1,6 @@
-﻿:root {
+﻿@import url("/css/typography.css");
+
+:root {
     color-scheme: light;
     --bg: #eef0fb;
     --ink: #28233c;

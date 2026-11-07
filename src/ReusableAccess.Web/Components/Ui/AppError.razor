@@ -1,0 +1,23 @@
+﻿@inject NavigationManager Navigation
+
+@if (!string.IsNullOrWhiteSpace(Error))
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="my-4">
+        @Error
+        @if (NeedsLogin)
+        {
+            <MudButton Href="@LoginUrl" Target="_top" Color="Color.Primary">
+                ورود دوباره
+            </MudButton>
+        }
+    </MudAlert>
+}
+
+@code {
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public bool NeedsLogin { get; set; }
+
+    private string LoginUrl => "/account/login?returnUrl=" +
+        Uri.EscapeDataString("/" +
+            Navigation.ToBaseRelativePath(Navigation.Uri));
+}

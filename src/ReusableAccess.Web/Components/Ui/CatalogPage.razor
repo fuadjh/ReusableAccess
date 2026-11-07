@@ -1,0 +1,226 @@
+﻿
+@inject AccessCatalogService Catalog
+
+<AppPage Title="@Title"
+         Description="جست‌وجو در صفحه است؛ ایجاد، ویرایش و تأیید حذف در مودال انجام می‌شود.">
+    <Actions>
+        <MudButton Variant="Variant.Outlined" Disabled="@Busy" OnClick="Reload">
+            تازه‌سازی
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   Disabled="@(Unavailable || !_loaded)"
+                   OnClick="() => BeginEdit(null)">
+            ایجاد جدید
+        </MudButton>
+    </Actions>
+    <ChildContent>
+        <AppError Error="@Error" NeedsLogin="@NeedsLogin" />
+        <MudTextField T="string" @bind-Value="_query"
+                      Label="جست‌وجوی عنوان یا کد"
+                      Immediate="true" Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search"
+                      Class="mb-4" />
+        <MudTable T="CatalogItem" Items="@VisibleRows"
+                  Loading="@Busy" Hover="true"
+                  Elevation="0" Class="ra-table" RowsPerPage="10">
+            <HeaderContent>
+                <MudTh>عنوان</MudTh>
+                <MudTh>کد ثابت</MudTh>
+                <MudTh>عملیات</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="عنوان">
+                    @(IsScope ? ScopePath(context) : context.Name)
+                </MudTd>
+                <MudTd DataLabel="کد ثابت">
+                    <span dir="ltr">@context.Code</span>
+                </MudTd>
+                <MudTd DataLabel="عملیات">
+                    <MudButton Size="Size.Small" Disabled="@Unavailable"
+                               OnClick="() => BeginEdit(context)">
+                        ویرایش
+                    </MudButton>
+                    @if (!IsScope)
+                    {
+                        <MudButton Size="Size.Small" Disabled="@Unavailable"
+                                   OnClick="() => OpenPermissions(context)">
+                            مجوزها
+                        </MudButton>
+                    }
+                    <MudButton Size="Size.Small" Color="Color.Error"
+                               Disabled="@Unavailable"
+                               OnClick="() => BeginDelete(context)">
+                        حذف
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="pa-5">موردی برای نمایش وجود ندارد.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager RowsPerPageString="تعداد ردیف"
+                               InfoFormat="{first_item} تا {last_item} از {all_items}" />
+            </PagerContent>
+        </MudTable>
+    </ChildContent>
+</AppPage>
+
+<AppEditDialog @bind-Visible="_editorOpen"
+               Title="@(_editingId.HasValue ? "ویرایش عنوان" : "ایجاد مورد جدید")"
+               Model="@_form" Busy="@Busy" CanSave="@(!Unavailable)"
+               OnSave="Save">
+    <AppError Error="@Error" NeedsLogin="@NeedsLogin" />
+    <MudTextField T="string" @bind-Value="_form.Code"
+                  For="@(() => _form.Code)"
+                  Label="کد ثابت" Variant="Variant.Outlined"
+                  Immediate="true" MaxLength="100"
+                  ReadOnly="@_editingId.HasValue" Disabled="@Busy" />
+    <MudTextField T="string" @bind-Value="_form.DisplayName"
+                  For="@(() => _form.DisplayName)"
+                  Label="عنوان" Variant="Variant.Outlined"
+                  Immediate="true" MaxLength="200" Disabled="@Busy" />
+
+    @if (IsScope)
+    {
+        <MudSelect T="Guid?" @bind-Value="_form.ParentScopeId"
+                   Label="محدودهٔ والد"
+                   HelperText="والد پس از ایجاد قابل تغییر نیست."
+                   Variant="Variant.Outlined"
+                   Disabled="@(Busy || _editingId.HasValue)">
+            <MudSelectItem T="Guid?" Value="@((Guid?)null)">بدون والد</MudSelectItem>
+            @foreach (var item in _items.OrderBy(x => ScopePath(x)))
+            {
+                <MudSelectItem T="Guid?" Value="@((Guid?)item.Id)">
+                    @ScopePath(item)
+                </MudSelectItem>
+            }
+        </MudSelect>
+    }
+</AppEditDialog>
+
+<AppConfirmDialog @bind-Visible="_deleteOpen"
+                  Title="تأیید حذف"
+                  Message="@($"حذف «{_pendingDelete?.Name}»؟ وابستگی‌های موجود در API بررسی می‌شوند.")"
+                  Busy="@Busy" OnConfirm="Delete" />
+
+<RolePermissionsDialog @bind-Visible="_permissionsOpen"
+                       RoleId="@_permissionRoleId"
+                       RoleName="@_permissionRoleName" />
+
+@code {
+    [Parameter] public CatalogKind Kind { get; set; }
+
+    private List<CatalogItem> _items = [];
+    private CatalogEditorModel _form = new();
+    private CatalogItem? _pendingDelete;
+    private Guid? _editingId;
+    private Guid _permissionRoleId;
+    private string _permissionRoleName = "";
+    private string? _query;
+    private bool _loaded, _editorOpen, _deleteOpen, _permissionsOpen;
+
+    private bool IsScope => Kind == CatalogKind.Scopes;
+    private string Title => IsScope ? "مدیریت محدوده‌ها" : "نقش‌ها و مجوزها";
+
+    private IEnumerable<CatalogItem> VisibleRows =>
+        _items.Where(x => string.IsNullOrWhiteSpace(_query) ||
+            $"{x.Name} {x.Code} {ScopePath(x)}"
+                .Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase))
+        .OrderBy(x => IsScope ? ScopePath(x) : x.Name);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await Reload();
+    }
+
+    private Task Reload() => Run(Load);
+
+    private async Task Load()
+    {
+        var rows = await Catalog.ListAsync(Kind);
+        if (!IsDisposed)
+        {
+            _items = rows;
+            _loaded = true;
+        }
+    }
+
+    private void BeginEdit(CatalogItem? item)
+    {
+        if (Unavailable || !_loaded)
+            return;
+
+        Error = null;
+        _editingId = item?.Id;
+        // کپی مستقل؛ انصراف، دادهٔ فهرست را تغییر نمی‌دهد.
+        _form = new()
+        {
+            Code = item?.Code ?? "",
+            DisplayName = item?.Name ?? "",
+            ParentScopeId = item?.ParentScopeId
+        };
+        _editorOpen = true;
+    }
+
+    private Task Save() => Run(async () =>
+    {
+        await Catalog.SaveAsync(Kind, _editingId, _form);
+        if (IsDisposed)
+            return;
+
+        _editorOpen = false;
+        Snackbar.Add("اطلاعات ذخیره شد.", Severity.Success);
+        await ReloadAfterSave(Load);
+    }, writing: true);
+
+    private void BeginDelete(CatalogItem item)
+    {
+        if (Unavailable)
+            return;
+        _pendingDelete = item;
+        _deleteOpen = true;
+    }
+
+    private Task Delete() => Run(async () =>
+    {
+        var item = _pendingDelete ??
+            throw new ValidationException("موردی انتخاب نشده است.");
+
+        await Catalog.DeleteAsync(Kind, item.Id);
+        if (IsDisposed)
+            return;
+
+        _deleteOpen = false;
+        _pendingDelete = null;
+        Snackbar.Add("مورد انتخاب‌شده حذف شد.", Severity.Success);
+        await ReloadAfterSave(Load);
+    }, writing: true);
+
+    private void OpenPermissions(CatalogItem role)
+    {
+        _permissionRoleId = role.Id;
+        _permissionRoleName = role.Name;
+        _permissionsOpen = true;
+    }
+
+    private string ScopePath(CatalogItem item)
+    {
+        var names = new List<string> { item.Name };
+        var seen = new HashSet<Guid> { item.Id };
+        var parentId = item.ParentScopeId;
+
+        while (parentId.HasValue && seen.Add(parentId.Value))
+        {
+            var parent = _items.FirstOrDefault(x => x.Id == parentId);
+            if (parent is null)
+                break;
+            names.Add(parent.Name);
+            parentId = parent.ParentScopeId;
+        }
+
+        names.Reverse();
+        return string.Join(" / ", names);
+    }
+}

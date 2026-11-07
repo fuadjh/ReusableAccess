@@ -1,0 +1,141 @@
+﻿@inherits UiPageBase
+@inject AuthenticationStateProvider Authentication
+@inject IJSRuntime JS
+
+<AuthorizeView>
+    <Authorized Context="account">
+        <div class="ra-account-name">
+            <MudMenu Label="@(_me?.DisplayName ?? account.User.Identity?.Name ?? "حساب کاربری")"
+                     AriaLabel="منوی حساب کاربری"
+                     StartIcon="@Icons.Material.Filled.AccountCircle"
+                     EndIcon="@Icons.Material.Filled.KeyboardArrowDown"
+                     AnchorOrigin="Origin.BottomLeft"
+                     TransformOrigin="Origin.TopLeft"
+                     PopoverClass="ra-account-popover"
+                     MaxHeight="520"
+                     @bind-Open="_menuOpen"
+                     @bind-Open:after="MenuChanged">
+                <MudText Typo="Typo.caption" Class="px-4 py-3">
+                    دسترسی‌های قابل‌انتخاب
+                </MudText>
+
+                <AccessProfilePanel AsMenu="true"
+                                    RefreshVersion="@_profileVersion"
+                                    CurrentChanged="SetCurrent" />
+
+                <MudDivider Class="my-2" />
+
+                <MudMenuItem Icon="@Icons.Material.Filled.Person"
+                             OnClick="() => _accountOpen = true">
+                    ویرایش حساب کاربری
+                </MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.Password"
+                             OnClick="() => _passwordOpen = true">
+                    تغییر گذرواژه
+                </MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.Security"
+                             Href="/console/security">
+                    امنیت حساب و تأیید کانال‌ها
+                </MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.ManageAccounts"
+                             Href="/access-profiles">
+                    صفحهٔ دسترسی‌های من
+                </MudMenuItem>
+                <MudMenuItem Icon="@Icons.Material.Filled.Logout"
+                             Disabled="@_loggingOut"
+                             OnClick="Logout">
+                    خروج
+                </MudMenuItem>
+
+                <AppError Error="@Error" NeedsLogin="@NeedsLogin" />
+            </MudMenu>
+
+            <div class="ra-account-current">@_activeLabel</div>
+        </div>
+
+        <form id="@_logoutFormId" action="/console/logout"
+              method="post" data-enhance="false" hidden>
+            <AntiforgeryToken />
+        </form>
+    </Authorized>
+    <NotAuthorized>
+        <MudButton Href="/account/login?returnUrl=/console"
+                   Target="_top" Color="Color.Primary">
+            ورود به حساب
+        </MudButton>
+    </NotAuthorized>
+</AuthorizeView>
+
+<OwnAccountDialog @bind-Visible="_accountOpen" Saved="LoadUser" />
+<ChangePasswordDialog @bind-Visible="_passwordOpen" />
+
+@code {
+    private readonly string _logoutFormId =
+        "ra-logout-" + Guid.NewGuid().ToString("N");
+
+    private UserRow? _me;
+    private bool _menuOpen, _accountOpen, _passwordOpen, _loggingOut;
+    private int _profileVersion;
+    private string _activeLabel = "انتخاب دسترسی فعال";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        var state = await Authentication.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true)
+            await LoadUser();
+    }
+
+    private Task LoadUser() => Run(async () =>
+    {
+        var me = await Api.GetAsync<UserRow>("api/account/me");
+        var profile = await Api.ActiveProfileAsync();
+
+        if (!IsDisposed)
+        {
+            _me = me;
+            SetCurrent(profile);
+        }
+    });
+
+    private void MenuChanged()
+    {
+        if (_menuOpen)
+            _profileVersion++;
+    }
+
+    private void SetCurrent(
+        ReusableAccess.Web.Infrastructure.ActiveAccessProfile? current)
+    {
+        _activeLabel = current is null
+            ? "انتخاب دسترسی فعال"
+            : $"{current.RoleCode} — " +
+              (current.ScopeMode == "all"
+                  ? "همهٔ محدوده‌ها"
+                  : current.ScopeCode);
+    }
+
+    private async Task Logout()
+    {
+        if (_loggingOut)
+            return;
+
+        _loggingOut = true;
+        try
+        {
+            await JS.InvokeVoidAsync("raUi.submit", _logoutFormId);
+        }
+        catch (JSDisconnectedException)
+        {
+            // خروج می‌تواند سند و circuit جاری را ببندد.
+        }
+        catch (JSException)
+        {
+            _loggingOut = false;
+            Snackbar.Add("ارسال درخواست خروج انجام نشد؛ دوباره تلاش کنید.",
+                Severity.Error);
+        }
+    }
+}

@@ -1,76 +1,36 @@
 ﻿@page "/admin/roles/{RoleId:guid}/permissions"
-@implements IAsyncDisposable
-@inject IJSRuntime JS
-@inject AuthenticationStateProvider AuthenticationStateProvider
-@inject NavigationManager Navigation
+@attribute [Authorize(Policy = "ConsoleAdmin")]
 
 <PageTitle>مجوزهای نقش</PageTitle>
 
-<h1>مجوزهای نقش</h1>
+<AppPage Title="مجوزهای نقش"
+         Description="ویرایش و ذخیرهٔ مجوزها در مودال مشترک انجام می‌شود.">
+    <Actions>
+        <MudButton Href="/admin/roles" Variant="Variant.Outlined">
+            بازگشت به نقش‌ها
+        </MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled"
+                   OnClick="() => _open = true">
+            بازکردن ویرایشگر مجوزها
+        </MudButton>
+    </Actions>
+</AppPage>
 
-<label for="permission-search">جست‌وجو</label>
-<input id="permission-search" type="search" placeholder="کلید یا توضیح مجوز" />
-
-<div class="mt-3">
-    <button id="permission-save" type="button" disabled>
-        ذخیرهٔ مجوزها
-    </button>
-</div>
-
-<p id="permissions-status" role="status" aria-live="polite">
-    در حال دریافت مجوزها...
-</p>
-
-<div id="permissions-list"></div>
+<RolePermissionsDialog @key="RoleId"
+                       RoleId="@RoleId"
+                       @bind-Visible="_open" />
 
 @code {
-    [Parameter]
-    public Guid RoleId { get; set; }
+    [Parameter] public Guid RoleId { get; set; }
+    private Guid? _previousRole;
+    private bool _open;
 
-    private IJSObjectReference? module;
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override void OnParametersSet()
     {
-        if (!firstRender)
-        {
+        if (_previousRole == RoleId)
             return;
-        }
 
-        var authState =
-            await AuthenticationStateProvider.GetAuthenticationStateAsync();
-
-        if (authState.User.Identity?.IsAuthenticated != true)
-        {
-            var returnUrl = Uri.EscapeDataString(
-                $"/admin/roles/{RoleId:D}/permissions");
-
-            Navigation.NavigateTo(
-                $"/account/login?returnUrl={returnUrl}",
-                forceLoad: true);
-            return;
-        }
-
-        module = await JS.InvokeAsync<IJSObjectReference>(
-            "import",
-            "/js/admin-role-permissions.js");
-
-        await module.InvokeVoidAsync("initialize", RoleId.ToString("D"));
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (module is null)
-        {
-            return;
-        }
-
-        try
-        {
-            await module.DisposeAsync();
-        }
-        catch (JSDisconnectedException)
-        {
-            // با قطع circuit، ماژول JS آزادشدنی نیست.
-        }
+        _previousRole = RoleId;
+        _open = true;
     }
 }

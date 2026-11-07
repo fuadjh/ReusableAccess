@@ -1,0 +1,117 @@
+﻿@using MudBlazor
+@implements IDisposable
+
+<MudDialog Visible="@Visible"
+           VisibleChanged="VisibleChanged"
+           Options="@Options"
+           Class="ra-modal"
+           AriaLabel="@Title">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Title</MudText>
+    </TitleContent>
+    <DialogContent>
+        <EditForm Model="@Model"
+                  @key="Model"
+                  FormName="@_formName"
+                  Context="editContext"
+                  OnValidSubmit="Submit">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <fieldset class="ra-form-fields" disabled="@(Busy || _opening)">
+                @ChildContent
+            </fieldset>
+
+            <div class="ra-dialog-footer">
+                <MudButton ButtonType="ButtonType.Button"
+                           Disabled="@(Busy || _opening)"
+                           OnClick="Cancel">
+                    انصراف
+                </MudButton>
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Disabled="@(Busy || _opening || !CanSave)">
+                    @if (Busy || _opening)
+                    {
+                        <MudProgressCircular Indeterminate="true"
+                                             Size="Size.Small"
+                                             Class="me-2" />
+                    }
+                    @SaveText
+                </MudButton>
+            </div>
+        </EditForm>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter, EditorRequired] public object Model { get; set; } = new();
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string SaveText { get; set; } = "ذخیره";
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool CanSave { get; set; } = true;
+    [Parameter] public MaxWidth Width { get; set; } = MaxWidth.Small;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback Opened { get; set; }
+
+    private readonly string _formName = "ra-editor-" + Guid.NewGuid().ToString("N");
+    private bool _wasVisible, _pendingOpen, _opening, _disposed;
+
+    private DialogOptions Options => new()
+    {
+        FullWidth = true,
+        MaxWidth = Width,
+        BackdropClick = false,
+        CloseOnEscapeKey = false,
+        CloseButton = false,
+        CloseOnNavigation = true,
+        DefaultFocus = DefaultFocus.FirstChild
+    };
+
+    protected override void OnParametersSet()
+    {
+        if (Visible && !_wasVisible)
+        {
+            _pendingOpen = true;
+            _opening = true;
+        }
+        if (!Visible)
+            _pendingOpen = false;
+
+        _wasVisible = Visible;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_pendingOpen || !Visible)
+            return;
+
+        _pendingOpen = false;
+        try
+        {
+            await Opened.InvokeAsync();
+        }
+        finally
+        {
+            _opening = false;
+            if (!_disposed)
+                await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private Task Submit() =>
+        Busy || _opening || !CanSave
+            ? Task.CompletedTask
+            : OnSave.InvokeAsync();
+
+    private Task Cancel() =>
+        Busy || _opening
+            ? Task.CompletedTask
+            : VisibleChanged.InvokeAsync(false);
+
+    public void Dispose() => _disposed = true;
+}

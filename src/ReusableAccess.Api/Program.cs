@@ -69,6 +69,7 @@ await app.Services.SeedCompletionDemoAsync(
     app.Environment);
 
 app.UseReusableAccessApi();
+app.MapOwnAccountEndpoints();
 app.MapCompletionEndpoints();
 app.MapCompletionPresentation();
 app.Run();

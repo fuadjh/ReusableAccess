@@ -1,0 +1,134 @@
+﻿@inherits UiPageBase
+@inject IJSRuntime JS
+
+<AppError Error="@Error" NeedsLogin="@NeedsLogin" />
+
+@if (Busy)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+
+@if (_loaded && _items.Count == 0)
+{
+    <MudText Typo="Typo.body2" Class="pa-4">
+        دسترسی فعالی برای انتخاب وجود ندارد.
+    </MudText>
+}
+
+@foreach (var profile in _items)
+{
+    var active = profile.Matches(_current);
+
+    @if (AsMenu)
+    {
+        <MudMenuItem @key="FormId(profile)"
+                     Disabled="@(Unavailable || _submitting || active)"
+                     Icon="@(active ? Icons.Material.Filled.Check : Icons.Material.Filled.ChevronLeft)"
+                     OnClick="() => Submit(FormId(profile))">
+            <span>@profile.BundleName</span>
+            <span class="ra-option-caption">
+                @profile.RoleCode — @profile.ScopeLabel
+                @(active ? " · فعال" : "")
+            </span>
+        </MudMenuItem>
+    }
+
+    <form id="@FormId(profile)"
+          action="/ui/access-profile/select"
+          method="post"
+          data-enhance="false"
+          hidden="@AsMenu">
+        <AntiforgeryToken />
+        <input type="hidden" name="bundleId" value="@profile.BundleId" />
+        <input type="hidden" name="roleCode" value="@profile.RoleCode" />
+        <input type="hidden" name="scopeCode" value="@profile.ScopeCode" />
+        <input type="hidden" name="scopeMode" value="@profile.ScopeMode" />
+
+        @if (!AsMenu)
+        {
+            <MudButton ButtonType="ButtonType.Submit"
+                       FullWidth="true"
+                       Variant="Variant.Outlined"
+                       Color="@(active ? Color.Primary : Color.Default)"
+                       Disabled="@(Unavailable || active)"
+                       Class="my-2">
+                @profile.BundleName — @profile.RoleCode — @profile.ScopeLabel
+                @(active ? " · فعال" : "")
+            </MudButton>
+        }
+    </form>
+}
+
+@code {
+    [Parameter] public bool AsMenu { get; set; }
+    [Parameter] public int RefreshVersion { get; set; }
+    [Parameter]
+    public EventCallback<ReusableAccess.Web.Infrastructure.ActiveAccessProfile?>
+        CurrentChanged
+    { get; set; }
+
+    private readonly string _prefix = "ra-profile-" + Guid.NewGuid().ToString("N");
+    private List<AccessProfileOption> _items = [];
+    private ReusableAccess.Web.Infrastructure.ActiveAccessProfile? _current;
+    private int _seenVersion = -1, _generation;
+    private bool _pending, _loaded, _submitting;
+
+    protected override void OnParametersSet()
+    {
+        if (_seenVersion == RefreshVersion)
+            return;
+        _seenVersion = RefreshVersion;
+        _generation++;
+        _pending = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_pending || Busy)
+            return;
+
+        _pending = false;
+        var generation = _generation;
+
+        await Run(async () =>
+        {
+            var items = await Api.GetAsync<List<AccessProfileOption>>(
+                "api/me/access-profiles");
+            var current = await Api.ActiveProfileAsync();
+
+            if (IsDisposed || generation != _generation)
+                return;
+
+            _items = items;
+            _current = items.Any(x => x.Matches(current)) ? current : null;
+            _loaded = true;
+            await CurrentChanged.InvokeAsync(_current);
+        }, current: () => generation == _generation);
+    }
+
+    private string FormId(AccessProfileOption item) =>
+        $"{_prefix}-{item.BundleId:N}-{item.RoleId:N}-{item.ScopeId?.ToString("N") ?? "all"}";
+
+    private async Task Submit(string formId)
+    {
+        if (_submitting || Unavailable)
+            return;
+
+        _submitting = true;
+        try
+        {
+            // فقط ارسال فرم استاندارد مرورگر؛ منطق انتخاب در C# و سرور است.
+            await JS.InvokeVoidAsync("raUi.submit", formId);
+        }
+        catch (JSDisconnectedException)
+        {
+            // بارگذاری سند جدید می‌تواند circuit فعلی را ببندد.
+        }
+        catch (JSException)
+        {
+            _submitting = false;
+            Snackbar.Add("ارسال فرم انجام نشد؛ صفحه را تازه‌سازی کنید.",
+                Severity.Error);
+        }
+    }
+}

@@ -1,52 +1,96 @@
 ﻿@inherits LayoutComponentBase
+@inject IJSRuntime JS
+@inject IConfiguration Configuration
 
-<div class="ra-shell">
-    <aside class="ra-sidebar glass">
-        <a class="ra-logo" href="/console" target="_top">
-            <span class="ra-mark">RA</span>
-            <span>
-                مدیریت دسترسی
-                <small>ReusableAccess</small>
-            </span>
-        </a>
-        <NavMenu />
-    </aside>
+<MudRTLProvider RightToLeft="true">
+    <MudThemeProvider Theme="@_theme"
+                      IsDarkMode="@_dark"
+                      ObserveSystemDarkModeChange="false" />
+    <MudPopoverProvider />
+    <MudDialogProvider />
+    <MudSnackbarProvider />
 
-    <div class="ra-main">
-        <header class="ra-topbar glass">
-            <span>فضای مدیریت دسترسی</span>
+    <MudLayout Class="ra-layout">
+        <MudAppBar Elevation="0" Class="ra-appbar">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu"
+                           aria-label="باز و بسته‌کردن منو"
+                           OnClick="() => _drawer = !_drawer" />
+            <MudText Typo="Typo.h6" Class="ra-app-title">
+                @(Configuration["Ui:Title"] ?? "مدیریت دسترسی")
+            </MudText>
 
-            <div class="ra-toolbar">
-                <a href="/access-profiles" target="_top">پروفایل فعال</a>
+            <MudSpacer />
 
-                <button type="button" class="ra-ghost" data-theme-toggle>
-                    روشن / تیره
-                </button>
+            <MudIconButton Icon="@(_dark ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                           aria-label="تغییر حالت روشن و تیره"
+                           OnClick="ToggleTheme" />
 
-                <AuthorizeView>
-                    <Authorized>
-                        <form action="/console/logout"
-                              method="post"
-                              data-enhance="false">
-                            <AntiforgeryToken />
-                            <button type="submit" class="ra-ghost">خروج</button>
-                        </form>
-                    </Authorized>
-                    <NotAuthorized>
-                        <a href="/account/login?returnUrl=/console" target="_top">
-                            ورود
-                        </a>
-                    </NotAuthorized>
-                </AuthorizeView>
-            </div>
-        </header>
+            @* در RTL، آخرین عضو پس از Spacer در سمت چپ قرار می‌گیرد. *@
+            <AccountMenu />
+        </MudAppBar>
 
-        <main class="ra-content">@Body</main>
-    </div>
-</div>
+        <MudDrawer @bind-Open="_drawer"
+                   Anchor="Anchor.Right"
+                   Variant="DrawerVariant.Responsive"
+                   ClipMode="DrawerClipMode.Always"
+                   Elevation="0"
+                   Class="ra-drawer">
+            <MudDrawerHeader>
+                <MudText Typo="Typo.h6">
+                    @(Configuration["Deployment:ApplicationName"] ?? "ReusableAccess")
+                </MudText>
+            </MudDrawerHeader>
+            <NavMenu />
+        </MudDrawer>
+
+        <MudMainContent>
+            <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="pa-5">
+                <UiFlashNotice />
+                @* پل موقت صفحات قدیمی؛ صفحات جدید خودشان ra-modern دارند. *@
+                <div class="ra-legacy">
+                    @Body
+                </div>
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+</MudRTLProvider>
 
 <div id="blazor-error-ui" data-nosnippet>
     ارتباط قطع شد یا خطایی رخ داد.
     <a href="." class="reload">بارگذاری دوباره</a>
     <span class="dismiss">×</span>
 </div>
+
+@code {
+    private readonly MudTheme _theme = AppTheme.Create();
+    private bool _drawer = true, _dark;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            _dark = await JS.InvokeAsync<bool>("raUi.getDark");
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (JSDisconnectedException)
+        {
+            // circuit هنگام راه‌اندازی بسته شده است.
+        }
+    }
+
+    private async Task ToggleTheme()
+    {
+        _dark = !_dark;
+        try
+        {
+            await JS.InvokeVoidAsync("raUi.setDark", _dark);
+        }
+        catch (JSDisconnectedException)
+        {
+            // ذخیرهٔ ترجیح ظاهری با circuit قطع‌شده ممکن نیست.
+        }
+    }
+}
