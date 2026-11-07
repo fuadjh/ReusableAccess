@@ -7,13 +7,7 @@
     <UserSecretsId>306e109f-c185-41a2-8458-f8ee49bd1ec5</UserSecretsId>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="Completion\OwnAccountEndpoints.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="Completion\OwnAccountEndpoints.cs" />
-  </ItemGroup>
+ 
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />

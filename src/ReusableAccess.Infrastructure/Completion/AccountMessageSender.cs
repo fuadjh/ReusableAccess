@@ -105,30 +105,41 @@ public sealed class AccountDeliveryQueue(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var item in _queue.Reader.ReadAllAsync(stoppingToken))
+        try
         {
-            try
+            await foreach (var item in _queue.Reader.ReadAllAsync(stoppingToken))
             {
-                await using var scope = scopes.CreateAsyncScope();
-                var sender = scope.ServiceProvider
-                    .GetRequiredService<IAccountMessageSender>();
+                try
+                {
+                    await using var scope = scopes.CreateAsyncScope();
 
-                await sender.SendAsync(
-                    item.Channel, item.Destination,
-                    item.Code, stoppingToken);
+                    var sender = scope.ServiceProvider
+                        .GetRequiredService<IAccountMessageSender>();
+
+                    await sender.SendAsync(
+                        item.Channel,
+                        item.Destination,
+                        item.Code,
+                        stoppingToken);
+                }
+                catch (OperationCanceledException)
+                    when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception)
+                {
+                    // نه مقصد و نه کد در log قرار نمی‌گیرند.
+                    logger.LogWarning(
+                        "Recovery delivery failed for channel {Channel}.",
+                        item.Channel);
+                }
             }
-            catch (OperationCanceledException)
-                when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception)
-            {
-                // نه مقصد و نه کد در log قرار می‌گیرند.
-                logger.LogWarning(
-                    "Recovery delivery failed for channel {Channel}.",
-                    item.Channel);
-            }
+        }
+        catch (OperationCanceledException)
+            when (stoppingToken.IsCancellationRequested)
+        {
+            // لغو خواندن کانال هنگام توقف Host طبیعی است.
         }
     }
 }

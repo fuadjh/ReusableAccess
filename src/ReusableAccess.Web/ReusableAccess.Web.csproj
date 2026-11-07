@@ -8,15 +8,6 @@
     <UserSecretsId>8de4c671-d5ec-47f3-a9f8-bcc201416dec</UserSecretsId>
   </PropertyGroup>
 
-  <ItemGroup>
-    <Compile Remove="Ui\UiPageBase.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="Ui\UiPageBase.cs" />
-  </ItemGroup>
-
-  
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.12" />

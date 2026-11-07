@@ -1,5 +1,6 @@
-﻿
+﻿@inherits ReusableAccess.Web.Ui.UiPageBase
 @inject AccessCatalogService Catalog
+
 
 <AppEditDialog Visible="@Visible" VisibleChanged="VisibleChanged"
                Title="@($"مجوزهای {RoleName}")"
