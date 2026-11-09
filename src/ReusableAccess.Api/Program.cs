@@ -6,6 +6,7 @@ using ReusableAccess.Api.Endpoints;
 using ReusableAccess.Application;
 using ReusableAccess.Infrastructure;
 using ReusableAccess.Infrastructure.Authorization;
+using OpenIddict.Abstractions;
 
 const string apiResource = "urn:reusableaccess:api";
 
@@ -62,6 +63,32 @@ var app = builder.Build();
 await app.Services.BootstrapCompletionAdminAsync(app.Configuration);
 // همهٔ initializationهای زمان startup فقط از این نقطه اجرا می‌شوند.
 await app.InitializeReusableAccessAsync( clientSecret, apiResource);
+
+//==============
+if (app.Environment.IsDevelopment())
+{
+    await using var clientCheckScope = app.Services.CreateAsyncScope();
+
+    var applicationManager = clientCheckScope.ServiceProvider
+        .GetRequiredService<IOpenIddictApplicationManager>();
+
+    var webClient = await applicationManager.FindByClientIdAsync(
+        "ReusableAccess.Web");
+
+    var registeredSecretIsValid =
+        webClient is not null &&
+        await applicationManager.ValidateClientSecretAsync(
+            webClient,
+            clientSecret);
+
+    app.Logger.LogInformation(
+        "DEV diagnostic: API secret matches registered Web client: {Matches}",
+        registeredSecretIsValid);
+}
+
+//==============
+
+
 await app.Services.SeedCompletionCatalogAsync();
 
 await app.Services.SeedCompletionDemoAsync(
