@@ -57,6 +57,7 @@ public static class DependencyInjection
         services.AddScoped<IRoleCommandStore, RoleCommandStore>();
         services.AddScoped<IScopeReadStore, ScopeReadStore>();
         services.AddScoped<IScopeCommandStore, ScopeCommandStore>();
+        services.AddScoped<IScopeDeletionStore, ScopeDeletionStore>();
         services.AddScoped<IUserBundleCommandStore, UserBundleCommandStore>();
         services.AddScoped<IRolePermissionsQueryStore,RolePermissionsQueryStore>();
         services.AddScoped<IRolePermissionsCommandStore,RolePermissionsCommandStore>();

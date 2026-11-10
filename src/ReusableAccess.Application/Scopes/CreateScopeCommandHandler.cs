@@ -10,6 +10,10 @@ public sealed class CreateScopeCommandHandler(
         CreateScopeCommand request,
         CancellationToken cancellationToken)
     {
-        return commandStore.CreateAsync(request, cancellationToken);
+        var normalized = ScopeCommandValidation.Normalize(request);
+
+        return commandStore.CreateAsync(
+            normalized,
+            cancellationToken);
     }
 }

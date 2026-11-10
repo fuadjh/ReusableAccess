@@ -4,7 +4,6 @@ using MudBlazor;
 using ReusableAccess.Web.Completion;
 
 namespace ReusableAccess.Web.Ui;
-
 public class UiPageBase : ComponentBase, IDisposable
 {
     [Inject] protected ConsoleApi Api { get; set; } = default!;

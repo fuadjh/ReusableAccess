@@ -372,23 +372,7 @@ public sealed class CompletionStore(
 
             db.Remove(role);
         }
-        else if (kind == "scope")
-        {
-            var scope = await db.Set<AccessScope>()
-                .SingleOrDefaultAsync(x => x.Id == id, ct)
-                ?? throw new CompletionException(404, "محدوده پیدا نشد.");
-
-            if (await db.Set<AccessScope>().AnyAsync(x => x.ParentScopeId == id, ct) ||
-                await db.Set<WorkItem>().AnyAsync(x => x.ScopeId == id, ct) ||
-                await db.Set<UserRoleAssignment>().AnyAsync(x => x.ScopeId == id, ct) ||
-                await db.Set<UserAccessBundleScope>().AnyAsync(x => x.ScopeId == id, ct))
-            {
-                throw new CompletionException(
-                    409, "محدوده دارای فرزند، تخصیص یا داده است.");
-            }
-
-            db.Remove(scope);
-        }
+       
         else
         {
             throw new CompletionException(400, "نوع موجودیت معتبر نیست.");

@@ -10,9 +10,12 @@ public sealed class RenameScopeCommandHandler(
         RenameScopeCommand request,
         CancellationToken cancellationToken)
     {
+        var displayName =
+            ScopeCommandValidation.NormalizeDisplayName(request.DisplayName);
+
         return commandStore.RenameAsync(
             request.ScopeId,
-            request.DisplayName,
+            displayName,
             cancellationToken);
     }
 }

@@ -16,7 +16,7 @@ public static class ApiPipelineExtensions
         app.UseExceptionHandler();
         app.UseStatusCodePages();
 
-        app.MapAdminScopesEndpoints();
+       
         app.MapAdminBundlesEndpoints();
 
         if (app.Environment.IsDevelopment())

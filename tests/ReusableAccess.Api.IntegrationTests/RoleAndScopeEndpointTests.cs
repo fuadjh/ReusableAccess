@@ -167,7 +167,14 @@ internal sealed class RoleAndScopeTestHost : IAsyncDisposable
         builder.Services.AddScoped<IRoleCommandStore, RoleCommandStore>();
         builder.Services.AddScoped<IScopeReadStore, ScopeReadStore>();
         builder.Services.AddScoped<IScopeCommandStore, ScopeCommandStore>();
+        builder.Services
+    .AddControllers()
+    .AddApplicationPart(
+        typeof(ReusableAccess.Api.Controllers.AdminScopesController).Assembly);
 
+        builder.Services.AddScoped<
+            IScopeDeletionStore,
+            ScopeDeletionStore>();
         var application = builder.Build();
 
         await using (var scope = application.Services.CreateAsyncScope())
@@ -181,7 +188,7 @@ internal sealed class RoleAndScopeTestHost : IAsyncDisposable
         application.UseAuthentication();
         application.UseAuthorization();
         application.MapAdminRolesEndpoints();
-        application.MapAdminScopesEndpoints();
+        application.MapControllers();
 
         await application.StartAsync();
 
@@ -191,6 +198,14 @@ internal sealed class RoleAndScopeTestHost : IAsyncDisposable
             application.GetTestClient());
     }
 
+    public async Task InScopeAsync(
+    Func<IServiceProvider, Task> action)
+    {
+        await using var scope =
+            _application.Services.CreateAsyncScope();
+
+        await action(scope.ServiceProvider);
+    }
     public async ValueTask DisposeAsync()
     {
         Client.Dispose();

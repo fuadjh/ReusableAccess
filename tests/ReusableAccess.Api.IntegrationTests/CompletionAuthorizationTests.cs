@@ -19,6 +19,7 @@ using OpenIddict.Validation.AspNetCore;
 using ReusableAccess.Api;
 using ReusableAccess.Api.Completion;
 using ReusableAccess.Application;
+using ReusableAccess.Application.Scopes;
 using ReusableAccess.Contracts;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Domain.Enums;
@@ -27,6 +28,7 @@ using ReusableAccess.Infrastructure.Authorization;
 using ReusableAccess.Infrastructure.Completion;
 using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.Persistence;
+using ReusableAccess.Infrastructure.Scopes;
 
 namespace ReusableAccess.Api.IntegrationTests;
 
@@ -44,7 +46,10 @@ public sealed class CompletionAuthorizationTests
                 ["password"] = "Test-Only.Strong42!"
             });
 
-        var response = await f.Client.PostAsync("/account/form/password", form);
+        var response = await f.Client.PostAsync(
+            "/account/form/password",
+            form);
+
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
@@ -52,8 +57,13 @@ public sealed class CompletionAuthorizationTests
     public async Task Anonymous_admin_request_is_401()
     {
         await using var f = await Host.Create();
-        var r = await f.Client.GetAsync("/api/admin/users/manage");
-        Assert.Equal(HttpStatusCode.Unauthorized, r.StatusCode);
+
+        var response = await f.Client.GetAsync(
+            "/api/admin/users/manage");
+
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            response.StatusCode);
     }
 
     [Fact]
@@ -62,18 +72,36 @@ public sealed class CompletionAuthorizationTests
         await using var f = await Host.Create();
         f.As(f.Reader);
 
-        var r = await f.Client.GetAsync("/api/admin/users/manage");
-        Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
+        var response = await f.Client.GetAsync(
+            "/api/admin/users/manage");
+
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            response.StatusCode);
     }
 
     [Fact]
-    public async Task Real_admin_policy_allows_listing()
+    public async Task Real_admin_policy_allows_listing_users()
     {
         await using var f = await Host.Create();
         f.As(f.Admin);
 
-        var r = await f.Client.GetAsync("/api/admin/users/manage");
-        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        var response = await f.Client.GetAsync(
+            "/api/admin/users/manage");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Real_admin_policy_allows_listing_scopes()
+    {
+        await using var f = await Host.Create();
+        f.As(f.Admin);
+
+        var response = await f.Client.GetAsync(
+            "/api/admin/scopes");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -82,8 +110,12 @@ public sealed class CompletionAuthorizationTests
         await using var f = await Host.Create();
         f.As(f.Reader, "all");
 
-        var r = await f.Client.GetAsync("/api/console/work-items");
-        Assert.Equal(HttpStatusCode.Forbidden, r.StatusCode);
+        var response = await f.Client.GetAsync(
+            "/api/console/work-items");
+
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            response.StatusCode);
     }
 
     [Fact]
@@ -92,11 +124,29 @@ public sealed class CompletionAuthorizationTests
         await using var f = await Host.Create();
         f.As(f.Reader);
 
-        var r = await f.Client.PutAsJsonAsync(
-            $"/api/work-items/{f.OtherItem}",
-            new WorkItemInput(Guid.Empty, "not allowed", "Closed"));
+        // کنترل مثبت: همین کاربر واقعاً مجوز update را در Scope فعال دارد.
+        using var sameScopeResponse = await f.Client.PutAsJsonAsync(
+            $"/api/work-items/{f.OwnItem}",
+            new WorkItemInput(
+                Guid.Empty,
+                "Updated in allowed scope",
+                "Closed"));
 
-        Assert.Equal(HttpStatusCode.NotFound, r.StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            sameScopeResponse.StatusCode);
+
+        // کنترل امنیتی: همان کاربر نباید وجود WorkItem در Scope دیگر را ببیند.
+        using var crossScopeResponse = await f.Client.PutAsJsonAsync(
+            $"/api/work-items/{f.OtherItem}",
+            new WorkItemInput(
+                Guid.Empty,
+                "Must not be updated",
+                "Closed"));
+
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            crossScopeResponse.StatusCode);
     }
 
     [Fact]
@@ -105,20 +155,30 @@ public sealed class CompletionAuthorizationTests
         await using var f = await Host.Create();
         f.As(f.Reader);
 
-        Assert.Equal(HttpStatusCode.OK,
-            (await f.Client.GetAsync("/api/console/work-items")).StatusCode);
+        var beforeRemoval = await f.Client.GetAsync(
+            "/api/console/work-items");
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            beforeRemoval.StatusCode);
 
         await using (var scope = f.App.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider
                 .GetRequiredService<ApplicationDbContext>();
 
-            db.RemoveRange(await db.Set<RolePermission>().ToListAsync());
+            db.RemoveRange(
+                await db.Set<RolePermission>().ToListAsync());
+
             await db.SaveChangesAsync();
         }
 
-        Assert.Equal(HttpStatusCode.Forbidden,
-            (await f.Client.GetAsync("/api/console/work-items")).StatusCode);
+        var afterRemoval = await f.Client.GetAsync(
+            "/api/console/work-items");
+
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            afterRemoval.StatusCode);
     }
 
     [Fact]
@@ -132,14 +192,21 @@ public sealed class CompletionAuthorizationTests
             var db = scope.ServiceProvider
                 .GetRequiredService<ApplicationDbContext>();
 
-            var user = await db.Users.SingleAsync(x => x.Id == f.Reader);
+            var user = await db.Users.SingleAsync(
+                x => x.Id == f.Reader);
+
             user.IsActive = false;
             user.SessionVersion++;
+
             await db.SaveChangesAsync();
         }
 
-        Assert.Equal(HttpStatusCode.Unauthorized,
-            (await f.Client.GetAsync("/api/console/work-items")).StatusCode);
+        var response = await f.Client.GetAsync(
+            "/api/console/work-items");
+
+        Assert.Equal(
+            HttpStatusCode.Unauthorized,
+            response.StatusCode);
     }
 
     private sealed class TestAuth(
@@ -147,24 +214,36 @@ public sealed class CompletionAuthorizationTests
         ILoggerFactory logger,
         UrlEncoder encoder)
         : AuthenticationHandler<AuthenticationSchemeOptions>(
-            options, logger, encoder)
+            options,
+            logger,
+            encoder)
     {
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
             if (!Guid.TryParse(
-                    Request.Headers["X-Test-User"].FirstOrDefault(), out var id))
-                return Task.FromResult(AuthenticateResult.NoResult());
+                    Request.Headers["X-Test-User"].FirstOrDefault(),
+                    out var id))
+            {
+                return Task.FromResult(
+                    AuthenticateResult.NoResult());
+            }
 
             var identity = new ClaimsIdentity(
             [
                 new Claim("sub", id.ToString()),
-                new Claim(OpenIddictConstants.Claims.Scope, "access_api"),
+                new Claim(
+                    OpenIddictConstants.Claims.Scope,
+                    "access_api"),
                 new Claim("ra_version", "0")
             ], Scheme.Name);
 
-            return Task.FromResult(AuthenticateResult.Success(
-                new AuthenticationTicket(
-                    new ClaimsPrincipal(identity), Scheme.Name)));
+            var principal = new ClaimsPrincipal(identity);
+            var ticket = new AuthenticationTicket(
+                principal,
+                Scheme.Name);
+
+            return Task.FromResult(
+                AuthenticateResult.Success(ticket));
         }
     }
 
@@ -174,11 +253,16 @@ public sealed class CompletionAuthorizationTests
 
         public WebApplication App { get; }
         public HttpClient Client { get; }
+
         public Guid Admin { get; } = Guid.NewGuid();
         public Guid Reader { get; } = Guid.NewGuid();
+
+        public Guid OwnItem { get; private set; }
         public Guid OtherItem { get; private set; }
 
-        private Host(WebApplication app, SqliteConnection connection)
+        private Host(
+            WebApplication app,
+            SqliteConnection connection)
         {
             App = app;
             _connection = connection;
@@ -187,48 +271,79 @@ public sealed class CompletionAuthorizationTests
 
         public static async Task<Host> Create()
         {
-            var connection = new SqliteConnection("Data Source=:memory:");
+            var connection =
+                new SqliteConnection("Data Source=:memory:");
+
             await connection.OpenAsync();
 
-            var b = WebApplication.CreateBuilder(new WebApplicationOptions
-            {
-                EnvironmentName = "Testing"
-            });
+            var builder = WebApplication.CreateBuilder(
+                new WebApplicationOptions
+                {
+                    EnvironmentName = "Testing"
+                });
 
-            b.WebHost.UseTestServer();
+            builder.WebHost.UseTestServer();
 
-            b.Services.AddDbContext<ApplicationDbContext>(
-                o => o.UseSqlite(connection));
+            builder.Services.AddDbContext<ApplicationDbContext>(
+                options => options.UseSqlite(connection));
 
-            b.Services.AddAuthentication(
-                    OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
+            builder.Services
+                .AddAuthentication(
+                    OpenIddictValidationAspNetCoreDefaults
+                        .AuthenticationScheme)
                 .AddCookie(IdentityConstants.ApplicationScheme)
-                .AddScheme<AuthenticationSchemeOptions, TestAuth>(
-                    OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme,
+                .AddScheme<
+                    AuthenticationSchemeOptions,
+                    TestAuth>(
+                    OpenIddictValidationAspNetCoreDefaults
+                        .AuthenticationScheme,
                     _ => { });
 
-            b.Services.AddIdentityCore<ApplicationUser>()
+            builder.Services
+                .AddIdentityCore<ApplicationUser>()
                 .AddSignInManager()
                 .AddEntityFrameworkStores<ApplicationDbContext>()
                 .AddDefaultTokenProviders();
 
-            b.Services.AddApplication();
-            b.Services.AddCompletionInfrastructure();
-            b.Services.AddProblemDetails();
-            b.Services.AddReusableAccessApiAuthorization();
-            b.Services.AddCompletionApi();
+            builder.Services.AddApplication();
 
-            b.Services.AddScoped<
-                IAuthorizationHandler, PermissionAuthorizationHandler>();
+            builder.Services
+                .AddControllers()
+                .AddApplicationPart(
+                    typeof(ReusableAccess.Api.Controllers
+                        .AdminScopesController).Assembly);
 
-            var cleanup = b.Services.FirstOrDefault(x =>
-                x.ServiceType == typeof(IHostedService) &&
-                x.ImplementationType == typeof(ChallengeCleanup));
+            builder.Services.AddScoped<
+                IScopeReadStore,
+                ScopeReadStore>();
+
+            builder.Services.AddScoped<
+                IScopeCommandStore,
+                ScopeCommandStore>();
+
+            builder.Services.AddScoped<
+                IScopeDeletionStore,
+                ScopeDeletionStore>();
+
+            builder.Services.AddCompletionInfrastructure();
+            builder.Services.AddProblemDetails();
+            builder.Services.AddReusableAccessApiAuthorization();
+            builder.Services.AddCompletionApi();
+
+            builder.Services.AddScoped<
+                IAuthorizationHandler,
+                PermissionAuthorizationHandler>();
+
+            var cleanup = builder.Services.FirstOrDefault(service =>
+                service.ServiceType == typeof(IHostedService) &&
+                service.ImplementationType == typeof(ChallengeCleanup));
 
             if (cleanup is not null)
-                b.Services.Remove(cleanup);
+            {
+                builder.Services.Remove(cleanup);
+            }
 
-            var app = b.Build();
+            var app = builder.Build();
 
             app.UseExceptionHandler();
             app.UseAuthentication();
@@ -237,8 +352,11 @@ public sealed class CompletionAuthorizationTests
             app.UseRateLimiter();
             app.UseAntiforgery();
 
+            // MapControllers مکمل endpointهای Completion است؛
+            // نباید جایگزین MapCompletionEndpoints شود.
             app.MapCompletionEndpoints();
             app.MapAccountForms();
+            app.MapControllers();
 
             await using (var scope = app.Services.CreateAsyncScope())
             {
@@ -249,6 +367,7 @@ public sealed class CompletionAuthorizationTests
             }
 
             await app.StartAsync();
+
             var host = new Host(app, connection);
 
             await using (var scope = app.Services.CreateAsyncScope())
@@ -275,27 +394,67 @@ public sealed class CompletionAuthorizationTests
                         IsActive = true
                     });
 
-                var a = new AccessScope("A", "A");
-                var bScope = new AccessScope("B", "B");
+                var scopeA = new AccessScope("A", "A");
+                var scopeB = new AccessScope("B", "B");
+
                 var role = new Role("TEST_EDITOR", "Editor");
-                var read = new Permission("workitems.read", "read");
-                var update = new Permission("workitems.update", "update");
+                var read = new Permission(
+                    "workitems.read",
+                    "read");
+                var update = new Permission(
+                    "workitems.update",
+                    "update");
 
-                db.AddRange(a, bScope, role, read, update);
-                await db.SaveChangesAsync();
-
+                // مجوزها را پیش از اولین SaveChanges به Role وصل می‌کنیم.
                 role.AddPermission(read);
                 role.AddPermission(update);
 
-                db.Add(new UserAccessBundle(
-                    host.Reader, "A only", [role.Id],
-                    ScopeSelectionMode.Selected, [a.Id]));
-
-                var item = new WorkItem(bScope.Id, "Other scope", "Open");
-                host.OtherItem = item.Id;
-                db.Add(item);
+                db.AddRange(
+                    scopeA,
+                    scopeB,
+                    role,
+                    read,
+                    update);
 
                 await db.SaveChangesAsync();
+
+                db.Add(new UserAccessBundle(
+                    host.Reader,
+                    "A only",
+                    [role.Id],
+                    ScopeSelectionMode.Selected,
+                    [scopeA.Id]));
+
+                var ownItem = new WorkItem(
+                    scopeA.Id,
+                    "Own scope item",
+                    "Open");
+
+                var otherItem = new WorkItem(
+                    scopeB.Id,
+                    "Other scope item",
+                    "Open");
+
+                host.OwnItem = ownItem.Id;
+                host.OtherItem = otherItem.Id;
+
+                db.AddRange(ownItem, otherItem);
+
+                await db.SaveChangesAsync();
+
+                // اگر seed مجوز ناقص باشد، تست با علت روشن‌تری متوقف شود.
+                Assert.True(
+                    await db.Set<RolePermission>().AnyAsync(
+                        item => item.RoleId == role.Id &&
+                                item.PermissionId == update.Id));
+
+                Assert.True(
+                    await db.Set<UserAccessBundleRole>().AnyAsync(
+                        item => item.RoleId == role.Id));
+
+                Assert.True(
+                    await db.Set<UserAccessBundleScope>().AnyAsync(
+                        item => item.ScopeId == scopeA.Id));
             }
 
             return host;

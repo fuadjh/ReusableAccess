@@ -258,12 +258,7 @@ public static class CompletionApiExtensions
                     data = await s.Send(new DeleteAccessEntity(Subject(c), "role", id), ct)
                 }));
 
-        admin.MapDelete("/scopes/{id:guid}",
-            async (Guid id, HttpContext c, ISender s, CancellationToken ct) =>
-                Results.Ok(new
-                {
-                    data = await s.Send(new DeleteAccessEntity(Subject(c), "scope", id), ct)
-                }));
+       
 
         admin.MapGet("/users/{id:guid}/access-list",
             async (Guid id, ISender s, CancellationToken ct) =>
