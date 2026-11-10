@@ -3,7 +3,6 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
@@ -17,6 +16,7 @@ using Microsoft.Extensions.Options;
 using OpenIddict.Abstractions;
 using OpenIddict.Validation.AspNetCore;
 using ReusableAccess.Api;
+using ReusableAccess.Api.Authorization;
 using ReusableAccess.Api.Completion;
 using ReusableAccess.Application;
 using ReusableAccess.Application.Scopes;
@@ -24,7 +24,6 @@ using ReusableAccess.Contracts;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Domain.Enums;
 using ReusableAccess.Infrastructure;
-using ReusableAccess.Infrastructure.Authorization;
 using ReusableAccess.Infrastructure.Completion;
 using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.Persistence;
@@ -50,7 +49,9 @@ public sealed class CompletionAuthorizationTests
             "/account/form/password",
             form);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            response.StatusCode);
     }
 
     [Fact]
@@ -89,7 +90,9 @@ public sealed class CompletionAuthorizationTests
         var response = await f.Client.GetAsync(
             "/api/admin/users/manage");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            response.StatusCode);
     }
 
     [Fact]
@@ -101,7 +104,9 @@ public sealed class CompletionAuthorizationTests
         var response = await f.Client.GetAsync(
             "/api/admin/scopes");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            response.StatusCode);
     }
 
     [Fact]
@@ -124,7 +129,7 @@ public sealed class CompletionAuthorizationTests
         await using var f = await Host.Create();
         f.As(f.Reader);
 
-        // کنترل مثبت: همین کاربر واقعاً مجوز update را در Scope فعال دارد.
+        // کنترل مثبت: کاربر در Scope فعال مجوز update دارد.
         using var sameScopeResponse = await f.Client.PutAsJsonAsync(
             $"/api/work-items/{f.OwnItem}",
             new WorkItemInput(
@@ -136,7 +141,7 @@ public sealed class CompletionAuthorizationTests
             HttpStatusCode.OK,
             sameScopeResponse.StatusCode);
 
-        // کنترل امنیتی: همان کاربر نباید وجود WorkItem در Scope دیگر را ببیند.
+        // کنترل امنیتی: همان کاربر نباید مورد Scope دیگر را ببیند.
         using var crossScopeResponse = await f.Client.PutAsJsonAsync(
             $"/api/work-items/{f.OtherItem}",
             new WorkItemInput(
@@ -327,12 +332,17 @@ public sealed class CompletionAuthorizationTests
 
             builder.Services.AddCompletionInfrastructure();
             builder.Services.AddProblemDetails();
-            builder.Services.AddReusableAccessApiAuthorization();
-            builder.Services.AddCompletionApi();
 
-            builder.Services.AddScoped<
-                IAuthorizationHandler,
-                PermissionAuthorizationHandler>();
+            // همان ثبت‌های احراز هویت و مجوزدهی API واقعی:
+            // این extension، PermissionAuthorizationHandler،
+            // IHttpContextAccessor و Policyهای Permission را ثبت می‌کند.
+            builder.Services.AddReusableAccessAuthorization();
+
+            // Policy و Handler مربوط به PlatformAdmin.
+            builder.Services.AddReusableAccessApiAuthorization();
+
+            // Policyهای Completion، از جمله workitems.update.
+            builder.Services.AddCompletionApi();
 
             var cleanup = builder.Services.FirstOrDefault(service =>
                 service.ServiceType == typeof(IHostedService) &&
@@ -352,8 +362,8 @@ public sealed class CompletionAuthorizationTests
             app.UseRateLimiter();
             app.UseAntiforgery();
 
-            // MapControllers مکمل endpointهای Completion است؛
-            // نباید جایگزین MapCompletionEndpoints شود.
+            // MapControllers مکمل endpointهای Completion است
+            // و نباید جایگزین آن شود.
             app.MapCompletionEndpoints();
             app.MapAccountForms();
             app.MapControllers();
@@ -405,7 +415,7 @@ public sealed class CompletionAuthorizationTests
                     "workitems.update",
                     "update");
 
-                // مجوزها را پیش از اولین SaveChanges به Role وصل می‌کنیم.
+                // پیش از اولین ذخیره، مجوزها را به Role وصل می‌کنیم.
                 role.AddPermission(read);
                 role.AddPermission(update);
 
@@ -442,7 +452,6 @@ public sealed class CompletionAuthorizationTests
 
                 await db.SaveChangesAsync();
 
-                // اگر seed مجوز ناقص باشد، تست با علت روشن‌تری متوقف شود.
                 Assert.True(
                     await db.Set<RolePermission>().AnyAsync(
                         item => item.RoleId == role.Id &&
