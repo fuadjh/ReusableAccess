@@ -7,6 +7,13 @@
     <UserSecretsId>306e109f-c185-41a2-8458-f8ee49bd1ec5</UserSecretsId>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="Pages\**" />
+    <Content Remove="Pages\**" />
+    <EmbeddedResource Remove="Pages\**" />
+    <None Remove="Pages\**" />
+  </ItemGroup>
+
  
 
   <ItemGroup>
@@ -24,10 +31,6 @@
   <ItemGroup>
     <ProjectReference Include="..\ReusableAccess.Application\ReusableAccess.Application.csproj" />
     <ProjectReference Include="..\ReusableAccess.Infrastructure\ReusableAccess.Infrastructure.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Pages\Account\" />
   </ItemGroup>
 
 </Project>

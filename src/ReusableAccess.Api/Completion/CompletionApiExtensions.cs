@@ -197,44 +197,7 @@ public static class CompletionApiExtensions
         var admin = app.MapGroup("/api/admin")
             .RequireAuthorization("PlatformAdmin");
 
-        admin.MapGet("/users/manage",
-            async (string? q, int? page, ISender s, CancellationToken ct) =>
-                Results.Ok(new
-                {
-                    data = await s.Send(new SearchUsers(q, page ?? 1), ct)
-                }));
-
-        admin.MapGet("/users/{id:guid}/details",
-            async (Guid id, ISender s, CancellationToken ct) =>
-                Results.Ok(new { data = await s.Send(new GetCurrentUser(id), ct) }));
-
-        admin.MapPost("/users",
-            async (CreateUserInput input, HttpContext c, ISender s, CancellationToken ct) =>
-                Results.Ok(new
-                {
-                    data = await s.Send(new CreateManagedUser(Subject(c), input), ct)
-                }));
-
-        admin.MapPut("/users/{id:guid}",
-            async (Guid id, UpdateUserInput input, HttpContext c, ISender s, CancellationToken ct) =>
-                Results.Ok(new
-                {
-                    data = await s.Send(new UpdateManagedUser(Subject(c), id, input), ct)
-                }));
-
-        admin.MapPut("/users/{id:guid}/active",
-            async (Guid id, ActiveUserInput input, HttpContext c, ISender s, CancellationToken ct) =>
-                Results.Ok(new
-                {
-                    data = await s.Send(new SetManagedUserActive(Subject(c), id, input), ct)
-                }));
-
-        admin.MapPost("/users/{id:guid}/reset-password",
-            async (Guid id, AdminPasswordInput input, HttpContext c, ISender s, CancellationToken ct) =>
-                Results.Ok(new
-                {
-                    data = await s.Send(new ResetManagedPassword(Subject(c), id, input.Password), ct)
-                }));
+       //======
 
         admin.MapGet("/access-settings",
             async (ISender s, CancellationToken ct) =>
