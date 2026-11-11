@@ -18,8 +18,11 @@ public sealed class CompletionConcurrencyBehavior<TRequest, TResponse>
             return await next();
         }
         catch (DbUpdateConcurrencyException)
-            when (typeof(TRequest).Namespace ==
-                  typeof(CompletionHandlers).Namespace)
+              when (
+                typeof(TRequest).Namespace ==
+                    typeof(CompletionHandlers).Namespace ||
+                typeof(TRequest).Namespace ==
+                    typeof(ReusableAccess.Application.Users.SearchUsers).Namespace)
         {
             throw new CompletionException(
                 409, "اطلاعات هم‌زمان تغییر کرده؛ دوباره دریافت کنید.");

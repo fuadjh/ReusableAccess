@@ -1,10 +1,11 @@
-﻿using System.Net.Http.Headers;
-using System.Security.Claims;
-using System.Text.Json;
-using Microsoft.AspNetCore.Authentication;
+﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using ReusableAccess.Web.Infrastructure;
+using ReusableAccess.Web.Ui;
+using System.Net.Http.Headers;
+using System.Security.Claims;
+using System.Text.Json;
 
 namespace ReusableAccess.Web.Completion;
 
@@ -128,31 +129,7 @@ public sealed class ConsoleApi(
             _ => $"درخواست انجام نشد ({status})."
         };
 
-        try
-        {
-            using var json = JsonDocument.Parse(text);
-            var root = json.RootElement;
-
-            if (root.ValueKind == JsonValueKind.String)
-            {
-                message = root.GetString() ?? message;
-            }
-            else if (root.ValueKind == JsonValueKind.Object)
-            {
-                foreach (var field in new[] { "detail", "message", "title" })
-                {
-                    if (root.TryGetProperty(field, out var value) &&
-                        value.ValueKind == JsonValueKind.String)
-                    {
-                        message = value.GetString() ?? message;
-                        break;
-                    }
-                }
-            }
-        }
-        catch (JsonException)
-        {
-        }
+        message = ApiProblemText.Read(text, message);
 
         throw new ConsoleApiException(status, message);
     }

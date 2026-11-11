@@ -15,6 +15,7 @@ using ReusableAccess.Domain.Entities;
 using ReusableAccess.Domain.Identity;
 using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.Persistence;
+using ReusableAccess.Application.Users;
 
 namespace ReusableAccess.Infrastructure.Completion;
 
@@ -22,7 +23,7 @@ public sealed class AccountWorkflow(
     ApplicationDbContext db,
     UserManager<ApplicationUser> users,
     SignInManager<ApplicationUser> signIn,
-    ICompletionStore store,
+    IUserRegistrationStore registrations,
     IAccountMessageSender sender,
     IRecoveryCodeQueue recoveryQueue,
     IDataProtectionProvider protection,
@@ -332,7 +333,7 @@ public sealed class AccountWorkflow(
 
         try
         {
-            await store.CreateUserAsync(input, false, ct);
+            await registrations.RegisterAsync(input, ct);
         }
         catch (CompletionException e) when (e.StatusCode == 409)
         {

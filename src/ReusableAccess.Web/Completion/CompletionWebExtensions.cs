@@ -1,11 +1,12 @@
-﻿using System.Security.Cryptography.X509Certificates;
-using Microsoft.AspNetCore.Antiforgery;
+﻿using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using ReusableAccess.Contracts;
+using ReusableAccess.Web.Ui;
+using System.Security.Cryptography.X509Certificates;
 
 namespace ReusableAccess.Web.Completion;
 
@@ -41,7 +42,7 @@ public static class CompletionWebExtensions
         services.AddScoped<ConsoleApi>();
         services.AddScoped<BundleManagementService>();
         services.AddScoped<IAuthorizationHandler, ApiPermissionHandler>();
-
+        services.AddScoped<ManagedUsersService>();
         services.AddAuthorization(o =>
         {
             o.AddPolicy("ConsoleAdmin", p =>

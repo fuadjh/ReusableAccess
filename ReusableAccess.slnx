@@ -5,8 +5,7 @@
   <Folder Name="/src/">
     <Project Path="src/ReusableAccess.Api/ReusableAccess.Api.csproj" />
     <Project Path="src/ReusableAccess.Application/ReusableAccess.Application.csproj" />
-   <Project Path="src/ReusableAccess.Contracts/ReusableAccess.Contracts.csproj" />
-   
+    <Project Path="src/ReusableAccess.Contracts/ReusableAccess.Contracts.csproj" />
     <Project Path="src/ReusableAccess.Domain/ReusableAccess.Domain.csproj" />
     <Project Path="src/ReusableAccess.Infrastructure/ReusableAccess.Infrastructure.csproj" />
     <Project Path="src/ReusableAccess.Web/ReusableAccess.Web.csproj" />
@@ -15,5 +14,6 @@
     <Project Path="tests/ReusableAccess.Api.IntegrationTests/ReusableAccess.Api.IntegrationTests.csproj" />
     <Project Path="tests/ReusableAccess.Domain.Tests/ReusableAccess.Domain.Tests.csproj" />
     <Project Path="tests/ReusableAccess.Infrastructure.Tests/ReusableAccess.Infrastructure.Tests.csproj" />
+    <Project Path="tests/ReusableAccess.Web.Tests/ReusableAccess.Web.Tests.csproj" Id="7225d448-5111-4c50-9f92-26a099af6bdc" />
   </Folder>
 </Solution>

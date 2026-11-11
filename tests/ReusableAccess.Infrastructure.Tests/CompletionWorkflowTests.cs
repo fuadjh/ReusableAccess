@@ -4,6 +4,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Users;
 using ReusableAccess.Contracts;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Domain.Identity;
@@ -20,8 +21,9 @@ public sealed class CompletionWorkflowTests
     {
         await using var f = await Fixture.Create();
 
+        // ثبت‌نام عمومی از قرارداد مستقل خودش استفاده می‌کند.
         var e = await Assert.ThrowsAsync<CompletionException>(() =>
-            f.Store.CreateUserAsync(f.Input(1), false, default));
+            f.Registrations.RegisterAsync(f.Input(1), default));
 
         Assert.Equal(403, e.StatusCode);
     }
@@ -33,16 +35,20 @@ public sealed class CompletionWorkflowTests
         var admin = await f.User(1, true);
 
         var self = await Assert.ThrowsAsync<CompletionException>(() =>
-            f.Store.SetActiveAsync(
-                admin.Id, admin.Id,
-                new(false, admin.ConcurrencyStamp!), default));
+            f.UserCommandStore.SetActiveAsync(
+                admin.Id,
+                admin.Id,
+                new ActiveUserInput(false, admin.ConcurrencyStamp!),
+                default));
 
         Assert.Equal(409, self.StatusCode);
 
         var last = await Assert.ThrowsAsync<CompletionException>(() =>
-            f.Store.SetActiveAsync(
-                Guid.NewGuid(), admin.Id,
-                new(false, admin.ConcurrencyStamp!), default));
+            f.UserCommandStore.SetActiveAsync(
+                Guid.NewGuid(),
+                admin.Id,
+                new ActiveUserInput(false, admin.ConcurrencyStamp!),
+                default));
 
         Assert.Equal(409, last.StatusCode);
     }
@@ -53,13 +59,17 @@ public sealed class CompletionWorkflowTests
         await using var f = await Fixture.Create();
         var user = await f.User(1);
 
-        Assert.True(await f.Validator.IsCurrentAsync(user.Id, 0, default));
+        Assert.True(
+            await f.Validator.IsCurrentAsync(user.Id, 0, default));
 
-        await f.Store.SetActiveAsync(
-            Guid.NewGuid(), user.Id,
-            new(false, user.ConcurrencyStamp!), default);
+        await f.UserCommandStore.SetActiveAsync(
+            Guid.NewGuid(),
+            user.Id,
+            new ActiveUserInput(false, user.ConcurrencyStamp!),
+            default);
 
-        Assert.False(await f.Validator.IsCurrentAsync(user.Id, 0, default));
+        Assert.False(
+            await f.Validator.IsCurrentAsync(user.Id, 0, default));
     }
 
     [Fact]
@@ -74,10 +84,14 @@ public sealed class CompletionWorkflowTests
         f.Db.AddRange(a, b, item);
         await f.Db.SaveChangesAsync();
 
+        // WorkItem هنوز در محدودهٔ Completion باقی مانده است.
         var error = await Assert.ThrowsAsync<CompletionException>(() =>
             f.Store.WriteWorkItemAsync(
-                item.Id, "selected", "A",
-                new(Guid.Empty, "changed", "Closed"), default));
+                item.Id,
+                "selected",
+                "A",
+                new WorkItemInput(Guid.Empty, "changed", "Closed"),
+                default));
 
         Assert.Equal(404, error.StatusCode);
         Assert.Equal("B item", item.Title);
@@ -93,7 +107,10 @@ public sealed class CompletionWorkflowTests
         view.Policy.LoginMode = LoginMode.PasswordAndEmail;
 
         var error = await Assert.ThrowsAsync<CompletionException>(() =>
-            f.Store.SaveSettingsAsync(admin.Id, view.Policy, default));
+            f.Store.SaveSettingsAsync(
+                admin.Id,
+                view.Policy,
+                default));
 
         Assert.Equal(400, error.StatusCode);
     }
@@ -105,17 +122,31 @@ public sealed class CompletionWorkflowTests
         var user = await f.User(1);
 
         var id = await f.Workflow.RequestContactAsync(
-            user.Id, DeliveryChannel.Email, default);
+            user.Id,
+            DeliveryChannel.Email,
+            default);
 
         var code = f.Sender.Code!;
 
-        await f.Workflow.ConfirmContactAsync(user.Id, id, code, default);
+        await f.Workflow.ConfirmContactAsync(
+            user.Id,
+            id,
+            code,
+            default);
 
-        Assert.True(
-            (await f.Store.CurrentUserAsync(user.Id, default)).EmailConfirmed);
+        // جزئیات حساب از Read Store مستقل کاربران خوانده می‌شود.
+        var current = await f.UserReadStore.CurrentUserAsync(
+            user.Id,
+            default);
+
+        Assert.True(current.EmailConfirmed);
 
         await Assert.ThrowsAsync<CompletionException>(() =>
-            f.Workflow.ConfirmContactAsync(user.Id, id, code, default));
+            f.Workflow.ConfirmContactAsync(
+                user.Id,
+                id,
+                code,
+                default));
     }
 
     [Fact]
@@ -125,13 +156,18 @@ public sealed class CompletionWorkflowTests
         var user = await f.User(1);
 
         var id = await f.Workflow.RequestContactAsync(
-            user.Id, DeliveryChannel.Email, default);
+            user.Id,
+            DeliveryChannel.Email,
+            default);
 
         f.Clock.Now = f.Clock.Now.AddMinutes(5);
 
         await Assert.ThrowsAsync<CompletionException>(() =>
             f.Workflow.ConfirmContactAsync(
-                user.Id, id, f.Sender.Code!, default));
+                user.Id,
+                id,
+                f.Sender.Code!,
+                default));
     }
 
     [Fact]
@@ -141,7 +177,9 @@ public sealed class CompletionWorkflowTests
         var user = await f.User(1);
 
         var id = await f.Workflow.RequestContactAsync(
-            user.Id, DeliveryChannel.Email, default);
+            user.Id,
+            DeliveryChannel.Email,
+            default);
 
         var correct = f.Sender.Code!;
 
@@ -149,11 +187,18 @@ public sealed class CompletionWorkflowTests
         {
             await Assert.ThrowsAsync<CompletionException>(() =>
                 f.Workflow.ConfirmContactAsync(
-                    user.Id, id, "000000", default));
+                    user.Id,
+                    id,
+                    "000000",
+                    default));
         }
 
         await Assert.ThrowsAsync<CompletionException>(() =>
-            f.Workflow.ConfirmContactAsync(user.Id, id, correct, default));
+            f.Workflow.ConfirmContactAsync(
+                user.Id,
+                id,
+                correct,
+                default));
     }
 
     [Fact]
@@ -162,7 +207,9 @@ public sealed class CompletionWorkflowTests
         await using var f = await Fixture.Create();
 
         var e = await Assert.ThrowsAsync<CompletionException>(() =>
-            f.Workflow.RequestRecoveryAsync(f.Input(1).NationalId, default));
+            f.Workflow.RequestRecoveryAsync(
+                f.Input(1).NationalId,
+                default));
 
         Assert.Equal(403, e.StatusCode);
     }
@@ -178,16 +225,22 @@ public sealed class CompletionWorkflowTests
         await f.Db.SaveChangesAsync();
 
         var start = await f.Workflow.PasswordAsync(
-            user.NationalId, Fixture.Password, false, default);
+            user.NationalId,
+            Fixture.Password,
+            false,
+            default);
 
         Assert.False(start.Succeeded);
         Assert.NotNull(start.ChallengeId);
 
         var end = await f.Workflow.VerifyLoginAsync(
-            start.ChallengeId!.Value, f.Sender.Code!, default);
+            start.ChallengeId!.Value,
+            f.Sender.Code!,
+            default);
 
         Assert.True(end.Succeeded);
-        // فقط نتیجهٔ متد را بررسی نمی‌کنیم؛ principal و صدور کوکی هم بررسی می‌شوند.
+
+        // علاوه بر نتیجهٔ متد، principal و صدور کوکی هم بررسی می‌شوند.
         Assert.True(f.Http.User.Identity?.IsAuthenticated == true);
 
         Assert.False(
@@ -205,16 +258,23 @@ public sealed class CompletionWorkflowTests
         await f.Users.UpdateAsync(user);
 
         var start = await f.Workflow.PasswordAsync(
-            user.NationalId, Fixture.Password, false, default);
+            user.NationalId,
+            Fixture.Password,
+            false,
+            default);
 
         Assert.False(start.Succeeded);
         Assert.True(start.PasswordChangeRequired);
 
         var end = await f.Workflow.ChangeRequiredPasswordAsync(
-            start.ChallengeId!.Value, "New-Only.Strong72!", default);
+            start.ChallengeId!.Value,
+            "New-Only.Strong72!",
+            default);
 
         Assert.True(end.Succeeded);
-        Assert.False(await f.Users.CheckPasswordAsync(user, Fixture.Password));
+
+        Assert.False(
+            await f.Users.CheckPasswordAsync(user, Fixture.Password));
     }
 
     private sealed class FakeSender : IAccountMessageSender
@@ -224,19 +284,23 @@ public sealed class CompletionWorkflowTests
         public bool IsConfigured(DeliveryChannel channel) => true;
 
         public Task SendAsync(
-            DeliveryChannel channel, string destination,
-            string code, CancellationToken ct)
+            DeliveryChannel channel,
+            string destination,
+            string code,
+            CancellationToken ct)
         {
             Code = code;
             return Task.CompletedTask;
         }
     }
+
     private sealed class TestHttpContextAccessor : IHttpContextAccessor
     {
         // فقط برای تستِ فاقد درخواست HTTP واقعی:
         // یک reference معمولی نگه می‌داریم، نه مقدار وابسته به AsyncLocal.
         public HttpContext? HttpContext { get; set; }
     }
+
     private sealed class Clock : TimeProvider
     {
         public DateTimeOffset Now =
@@ -254,31 +318,57 @@ public sealed class CompletionWorkflowTests
         private readonly AsyncServiceScope _scope;
 
         public Clock Clock { get; }
+
         public FakeSender Sender { get; }
+
         public HttpContext Http =>
-    _scope.ServiceProvider
-        .GetRequiredService<IHttpContextAccessor>()
-        .HttpContext
-    ?? throw new InvalidOperationException(
-        "The test HttpContext has not been initialized.");
-        public ApplicationDbContext Db => _scope.ServiceProvider
-            .GetRequiredService<ApplicationDbContext>();
+            _scope.ServiceProvider
+                .GetRequiredService<IHttpContextAccessor>()
+                .HttpContext
+            ?? throw new InvalidOperationException(
+                "The test HttpContext has not been initialized.");
 
-        public UserManager<ApplicationUser> Users => _scope.ServiceProvider
-            .GetRequiredService<UserManager<ApplicationUser>>();
+        public ApplicationDbContext Db =>
+            _scope.ServiceProvider
+                .GetRequiredService<ApplicationDbContext>();
 
-        public ICompletionStore Store => _scope.ServiceProvider
-            .GetRequiredService<ICompletionStore>();
+        public UserManager<ApplicationUser> Users =>
+            _scope.ServiceProvider
+                .GetRequiredService<UserManager<ApplicationUser>>();
 
-        public IAccountWorkflow Workflow => _scope.ServiceProvider
-            .GetRequiredService<IAccountWorkflow>();
+        // قابلیت‌هایی که هنوز از Completion استخراج نشده‌اند.
+        public ICompletionStore Store =>
+            _scope.ServiceProvider
+                .GetRequiredService<ICompletionStore>();
 
-        public IAccountSessionValidator Validator => _scope.ServiceProvider
-            .GetRequiredService<IAccountSessionValidator>();
+        // قرارداد مستقل خواندن کاربران.
+        public IManagedUserReadStore UserReadStore =>
+            _scope.ServiceProvider
+                .GetRequiredService<IManagedUserReadStore>();
+
+        // قرارداد مستقل عملیات مدیریتی کاربران.
+        public IManagedUserCommandStore UserCommandStore =>
+            _scope.ServiceProvider
+                .GetRequiredService<IManagedUserCommandStore>();
+
+        // قرارداد مستقل ثبت‌نام عمومی.
+        public IUserRegistrationStore Registrations =>
+            _scope.ServiceProvider
+                .GetRequiredService<IUserRegistrationStore>();
+
+        public IAccountWorkflow Workflow =>
+            _scope.ServiceProvider
+                .GetRequiredService<IAccountWorkflow>();
+
+        public IAccountSessionValidator Validator =>
+            _scope.ServiceProvider
+                .GetRequiredService<IAccountSessionValidator>();
 
         private Fixture(
-            SqliteConnection connection, ServiceProvider root,
-            Clock clock, FakeSender sender)
+            SqliteConnection connection,
+            ServiceProvider root,
+            Clock clock,
+            FakeSender sender)
         {
             _connection = connection;
             _root = root;
@@ -317,6 +407,7 @@ public sealed class CompletionWorkflowTests
                 .AddEntityFrameworkStores<ApplicationDbContext>()
                 .AddDefaultTokenProviders();
 
+            // شامل ثبت Storeهای جدید کاربران، مطابق گام دوم.
             services.AddCompletionInfrastructure();
 
             // Sender جعلی فقط در همین ServiceProvider تست جایگزین می‌شود.
@@ -338,11 +429,12 @@ public sealed class CompletionWorkflowTests
             httpContext.Request.Scheme = "https";
             httpContext.Request.Host = new HostString("localhost");
 
-            // این بار مقدار در property معمولیِ accessor تست باقی می‌ماند.
+            // مقدار در property معمولی accessor تست باقی می‌ماند.
             contextAccessor.HttpContext = httpContext;
 
             return fixture;
         }
+
         public CreateUserInput Input(int number)
         {
             var prefix = "00110000" + number;
@@ -353,7 +445,7 @@ public sealed class CompletionWorkflowTests
             var national = prefix +
                 (remainder < 2 ? remainder : 11 - remainder);
 
-            return new()
+            return new CreateUserInput
             {
                 FirstName = "Test",
                 LastName = "User",
@@ -365,7 +457,9 @@ public sealed class CompletionWorkflowTests
             };
         }
 
-        public async Task<ApplicationUser> User(int number, bool admin = false)
+        public async Task<ApplicationUser> User(
+            int number,
+            bool admin = false)
         {
             var p = Input(number);
 
@@ -389,7 +483,9 @@ public sealed class CompletionWorkflowTests
 
             Assert.True(
                 result.Succeeded,
-                string.Join(";", result.Errors.Select(x => x.Description)));
+                string.Join(
+                    ";",
+                    result.Errors.Select(error => error.Description)));
 
             return user;
         }

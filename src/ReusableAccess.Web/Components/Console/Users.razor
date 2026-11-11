@@ -1,309 +1,474 @@
 ﻿@page "/console/users"
 @attribute [Authorize(Policy = "ConsoleAdmin")]
-@inherits ConsolePageBase
+@inherits UiPageBase
+@inject ManagedUsersService UsersService
 @inject NavigationManager Navigation
 
 <PageTitle>مدیریت کاربران</PageTitle>
-<h1>کاربران</h1>
-<Notice Error="Error" Success="Success" />
 
-<section class="glass ra-card">
-    <div class="ra-toolbar">
-        <input @bind="_query" placeholder="نام، کد ملی یا کد سازمانی" />
-        <button type="button" disabled="@Busy" @onclick="Search">جست‌وجو</button>
-        <button type="button" class="ra-ghost" @onclick="New">کاربر جدید</button>
-    </div>
+<AppPage Title="مدیریت کاربران"
+         Description="جست‌وجو در صفحه؛ ایجاد، ویرایش و عملیات حساب در مودال.">
+    <Actions>
+        <MudButton Disabled="@Busy" OnClick="Reload">
+            تازه‌سازی
+        </MudButton>
 
-    <div class="ra-table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>نام</th>
-                    <th>کد ملی</th>
-                    <th>کد سازمانی</th>
-                    <th>وضعیت</th>
-                    <th>عملیات</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var user in _rows)
-                {
-                    <tr>
-                        <td>
-                            @user.DisplayName
-                            @if (user.IsPlatformSuperAdmin)
-                            {
-                                <span class="ra-badge">ادمین</span>
-                            }
-                        </td>
-                        <td dir="ltr">@user.NationalId</td>
-                        <td>@user.OrganizationalCode</td>
-                        <td>@(user.IsActive ? "فعال" : "غیرفعال")</td>
-                        <td>
-                            <button type="button"
-                                    class="ra-ghost"
-                                    @onclick="() => Edit(user)">
-                                ویرایش
-                            </button>
-                            <button type="button"
-                                    class="ra-ghost"
-                                    @onclick="() => _pending = user">
-                                @(user.IsActive ? "غیرفعال‌سازی" : "فعال‌سازی")
-                            </button>
-                            <a href="@($"/console/assignments?userId={user.UserId}")"
-                               target="_top">
-                                دسترسی‌ها
-                            </a>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+        <span data-testid="user-create">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Disabled="@(Unavailable || !_loaded)"
+                       OnClick="BeginNew">
+                کاربر جدید
+            </MudButton>
+        </span>
+    </Actions>
 
-    @if (_pending is not null)
-    {
-        <div class="ra-alert">
-            تغییر وضعیت حساب @_pending.DisplayName را تأیید می‌کنید؟
-            <button type="button" disabled="@Busy" @onclick="Toggle">تأیید</button>
-            <button type="button"
-                    class="ra-ghost"
-                    @onclick="() => _pending = null">
-                لغو
-            </button>
-        </div>
-    }
+    <ChildContent>
+        <AppError Error="@Error" NeedsLogin="@NeedsLogin" />
 
-    <div class="ra-toolbar">
-        <button type="button"
-                class="ra-ghost"
-                disabled="@(_page == 1 || Busy)"
-                @onclick="Previous">
-            قبلی
-        </button>
-        <span>صفحه @_page · مجموع @_total</span>
-        <button type="button"
-                class="ra-ghost"
-                disabled="@(_page * 20 >= _total || Busy)"
-                @onclick="Next">
-            بعدی
-        </button>
-    </div>
-</section>
-
-<section class="glass ra-card mt">
-    <h2>@(_editing is null ? "ایجاد کاربر" : "ویرایش کاربر")</h2>
-
-    <EditForm Model="_input" OnValidSubmit="Save" FormName="managed-user">
-        <DataAnnotationsValidator />
-        <ValidationSummary />
-
-        <div class="ra-grid2">
-            <label>نام<InputText @bind-Value="_input.FirstName" /></label>
-            <label>نام خانوادگی<InputText @bind-Value="_input.LastName" /></label>
-            <label>کد سازمانی<InputText @bind-Value="_input.OrganizationalCode" /></label>
-
-            <label>
-                کد ملی / نام کاربری
-                <InputText @bind-Value="_input.NationalId"
-                           dir="ltr"
-                           readonly="@(_editing is not null && IdentityRules.IsValidNationalId(_editing.NationalId))" />
-            </label>
-
-            <label>
-                ایمیل
-                <InputText @bind-Value="_input.Email" type="email" dir="ltr" />
-            </label>
-
-            <label>
-                موبایل
-                <InputText @bind-Value="_input.Mobile" dir="ltr" />
-            </label>
+        <div data-testid="user-search">
+            <MudTextField T="string"
+                          @bind-Value="_query"
+                          Label="نام، کد ملی یا کد سازمانی"
+                          Immediate="true"
+                          Variant="Variant.Outlined"
+                          Disabled="@Busy" />
         </div>
 
-        @if (_editing is null)
-        {
-            <label>
-                گذرواژهٔ موقت
-                <InputText @bind-Value="_password"
-                           type="password"
-                           required
-                           minlength="12"
-                           maxlength="128"
-                           autocomplete="new-password" />
-            </label>
+        <MudButton Disabled="@(Unavailable || !_loaded)"
+                   OnClick="Search"
+                   Class="my-3">
+            جست‌وجو
+        </MudButton>
 
-            <p class="muted">
-                حداقل ۱۲ کاراکتر با حرف بزرگ، حرف کوچک، عدد و نشانه.
-                در اولین ورود باید تعویض شود.
-            </p>
-        }
+        <MudTable T="UserRow"
+                  Items="@_rows"
+                  RowsPerPage="20"
+                  Loading="@Busy"
+                  Hover="true"
+                  Elevation="0">
+            <HeaderContent>
+                <MudTh>نام</MudTh>
+                <MudTh>کد ملی</MudTh>
+                <MudTh>کد سازمانی</MudTh>
+                <MudTh>وضعیت</MudTh>
+                <MudTh>عملیات</MudTh>
+            </HeaderContent>
 
-        <button type="submit" disabled="@Busy">ذخیره</button>
-    </EditForm>
+            <RowTemplate>
+                <MudTd DataLabel="نام">
+                    @context.DisplayName
+                    @if (context.IsPlatformSuperAdmin)
+                    {
+                        <MudChip T="string" Size="Size.Small">
+                            ادمین
+                        </MudChip>
+                    }
+                </MudTd>
 
-    @if (_editing is not null)
+                <MudTd DataLabel="کد ملی">
+                    <span dir="ltr">@context.NationalId</span>
+                </MudTd>
+
+                <MudTd DataLabel="کد سازمانی">
+                    @context.OrganizationalCode
+                </MudTd>
+
+                <MudTd DataLabel="وضعیت">
+                    @(context.IsActive ? "فعال" : "غیرفعال")
+                </MudTd>
+
+                <MudTd DataLabel="عملیات">
+                    <MudButton Size="Size.Small"
+                               Disabled="@Unavailable"
+                               OnClick="() => BeginEdit(context.UserId)">
+                        ویرایش
+                    </MudButton>
+
+                    <MudButton Size="Size.Small"
+                               Disabled="@(Unavailable || context.UserId == _self)"
+                               OnClick="() => BeginPassword(context.UserId)">
+                        بازنشانی رمز
+                    </MudButton>
+
+                    <MudButton Size="Size.Small"
+                               Color="Color.Warning"
+                               Disabled="@(Unavailable || (context.UserId == _self && context.IsActive))"
+                               OnClick="() => BeginStatus(context.UserId)">
+                        @(context.IsActive ? "غیرفعال‌سازی" : "فعال‌سازی")
+                    </MudButton>
+
+                    <a href="@($"/console/assignments?userId={context.UserId}")"
+                       target="_top">
+                        دسترسی‌ها
+                    </a>
+                </MudTd>
+            </RowTemplate>
+
+            <NoRecordsContent>
+                <MudText Class="pa-4">
+                    کاربری برای نمایش وجود ندارد.
+                </MudText>
+            </NoRecordsContent>
+        </MudTable>
+
+        <div class="d-flex align-center gap-3 mt-4">
+            <MudButton Disabled="@(Unavailable || _page <= 1)"
+                       OnClick="Previous">
+                قبلی
+            </MudButton>
+
+            <span>صفحه @_page — مجموع @_total</span>
+
+            <MudButton Disabled="@(Unavailable || (long)_page * 20 >= _total)"
+                       OnClick="Next">
+                بعدی
+            </MudButton>
+        </div>
+    </ChildContent>
+</AppPage>
+
+<AppEditDialog Visible="@_editorOpen"
+               VisibleChanged="EditorVisibilityChanged"
+               Title="@(_editing is null ? "ایجاد کاربر" : "ویرایش کاربر")"
+               Model="@_form"
+               Busy="@Busy"
+               CanSave="@(!Unavailable && !_stale)"
+               SaveText="ذخیره کاربر"
+               OnSave="Save">
+    <AppError Error="@Error" NeedsLogin="@NeedsLogin" />
+
+    @if (_stale)
     {
-        <hr />
-
-        <label>
-            گذرواژهٔ موقت جدید
-            <input @bind="_password"
-                   type="password"
-                   autocomplete="new-password"
-                   maxlength="128" />
-        </label>
-
-        <button type="button"
-                class="ra-ghost"
-                disabled="@Busy"
-                @onclick="ResetPassword">
-            بازنشانی گذرواژه و ابطال نشست‌ها
-        </button>
+        <MudAlert Severity="Severity.Warning" Class="mb-3">
+            اطلاعات تغییر کرده است. فرم را ببندید و دوباره باز کنید؛
+            تغییرات شما به‌صورت خودکار بازنویسی نمی‌شوند.
+        </MudAlert>
     }
-</section>
+
+    <div data-testid="user-editor">
+        <ManagedUserFields Model="@_form" />
+    </div>
+</AppEditDialog>
+
+<AppEditDialog Visible="@_passwordOpen"
+               VisibleChanged="PasswordVisibilityChanged"
+               Title="@($"بازنشانی رمز {_pending?.DisplayName}")"
+               Model="@_password"
+               Busy="@Busy"
+               CanSave="@(!Unavailable && !_stale)"
+               SaveText="بازنشانی و ابطال نشست‌ها"
+               OnSave="ResetPassword">
+    <AppError Error="@Error" NeedsLogin="@NeedsLogin" />
+
+    <MudAlert Severity="Severity.Warning" Class="mb-3">
+        نشست‌های قبلی این حساب نامعتبر می‌شوند و کاربر باید
+        گذرواژهٔ موقت را در ورود بعدی تغییر دهد.
+    </MudAlert>
+
+    <div data-testid="user-password">
+        <div data-testid="user-reset-password">
+            <MudTextField T="string"
+                          @bind-Value="_password.Password"
+                          For="@(() => _password.Password)"
+                          Label="گذرواژهٔ موقت جدید"
+                          InputType="InputType.Password"
+                          Immediate="true"
+                          MaxLength="128"
+                          Variant="Variant.Outlined" />
+        </div>
+
+        <div data-testid="user-reset-confirmation" class="mt-3">
+            <MudTextField T="string"
+                          @bind-Value="_password.Confirmation"
+                          For="@(() => _password.Confirmation)"
+                          Label="تکرار گذرواژه"
+                          InputType="InputType.Password"
+                          Immediate="true"
+                          MaxLength="128"
+                          Variant="Variant.Outlined" />
+        </div>
+    </div>
+
+    @if (_stale)
+    {
+        <MudText Color="Color.Warning">
+            عملیات هم‌زمان رخ داده است؛ این پنجره را ببندید و دوباره باز کنید.
+        </MudText>
+    }
+</AppEditDialog>
+
+<AppEditDialog Visible="@_statusOpen"
+               VisibleChanged="StatusVisibilityChanged"
+               Title="تغییر وضعیت حساب"
+               Model="@_confirmation"
+               Busy="@Busy"
+               CanSave="@(!Unavailable && !_stale)"
+               SaveText="تأیید تغییر وضعیت"
+               OnSave="ToggleStatus">
+    <AppError Error="@Error" NeedsLogin="@NeedsLogin" />
+
+    <MudAlert Severity="Severity.Warning">
+        @(_pending?.IsActive == true ? "غیرفعال‌سازی" : "فعال‌سازی")
+        حساب «@_pending?.DisplayName» را تأیید می‌کنید؟
+    </MudAlert>
+
+    @if (_stale)
+    {
+        <MudText Color="Color.Warning" Class="mt-3">
+            وضعیت حساب تغییر کرده است؛ پنجره را ببندید و دوباره باز کنید.
+        </MudText>
+    }
+</AppEditDialog>
 
 @code {
-    private List<UserRow> _rows = [];
-    private UserRow? _editing, _pending;
-    private UserProfileInput _input = new();
-    private string _password = "", _query = "";
-    private int _page = 1, _total;
+    private IReadOnlyList<UserRow> _rows = [];
+    private UserRow? _editing;
+    private UserRow? _pending;
+
+    private ManagedUserEditorModel _form = new();
+    private ManagedPasswordModel _password = new();
+    private readonly object _confirmation = new();
+
+    private string _query = "";
+    private string _appliedQuery = "";
+
+    private int _page = 1;
+    private int _total;
     private Guid _self;
 
-    protected override Task OnInitializedAsync() => Run(async () =>
+    private bool _loaded;
+    private bool _editorOpen;
+    private bool _passwordOpen;
+    private bool _statusOpen;
+    private bool _stale;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        _self = (await Api.GetAsync<UserRow>("api/account/me")).UserId;
+        if (firstRender)
+            await Reload();
+    }
+
+    private Task Reload() => Run(async () =>
+    {
+        var self = await UsersService.MeAsync();
+
+        if (IsDisposed)
+            return;
+
+        _self = self.UserId;
+
         await Load();
+
+        if (!IsDisposed)
+        {
+            _loaded = true;
+            NeedsLogin = false;
+            Forbidden = false;
+        }
     });
 
-    private async Task Load()
+    private async Task Load(int? requestedPage = null, string? requestedQuery = null)
     {
-        var result = await Api.GetAsync<PageResult<UserRow>>(
-            $"api/admin/users/manage?q={Uri.EscapeDataString(_query)}&page={_page}"
-        );
+        var query = requestedQuery ?? _appliedQuery;
+        var result = await UsersService.ListAsync(query, requestedPage ?? _page);
 
-        _rows = result.Items.ToList();
-        _total = result.Total;
-    }
-
-    private Task Search()
-    {
-        _page = 1;
-        return Run(Load);
-    }
-
-    private Task Previous()
-    {
-        _page--;
-        return Run(Load);
-    }
-
-    private Task Next()
-    {
-        _page++;
-        return Run(Load);
-    }
-
-    private void New()
-    {
-        _editing = null;
-        _input = new();
-        _password = "";
-    }
-
-    private void Edit(UserRow user)
-    {
-        _editing = user;
-        _input = new()
+        // اگر تعداد نتایج کم شده باشد، روی صفحه‌ای خالی و خارج از محدوده نمانیم.
+        if (result.Items.Count == 0 && result.Total > 0 && result.Page > 1)
         {
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            OrganizationalCode = user.OrganizationalCode,
-            NationalId = user.NationalId,
-            Email = user.Email,
-            Mobile = user.Mobile
-        };
-        _password = "";
+            var lastPage = (int)Math.Max(
+                1L,
+                ((long)result.Total + result.PageSize - 1) / result.PageSize);
+
+            result = await UsersService.ListAsync(query, lastPage);
+        }
+
+        if (IsDisposed)
+            return;
+
+        _rows = result.Items;
+        _page = result.Page;
+        _total = result.Total;
+        _appliedQuery = query;
+    }
+
+    private Task Search() => Run(() => Load(1, _query));
+
+    private Task Previous() =>
+        Run(() => Load(Math.Max(1, _page - 1)));
+
+    private Task Next() =>
+        Run(() => Load(_page + 1));
+
+    private void BeginNew()
+    {
+        if (Unavailable || !_loaded)
+            return;
+
+        Error = null;
+        _stale = false;
+        _editing = null;
+        _form = ManagedUserEditorModel.From(null);
+        _editorOpen = true;
+    }
+
+    private Task BeginEdit(Guid id) => Run(async () =>
+    {
+        var user = await UsersService.GetAsync(id);
+
+        if (IsDisposed)
+            return;
+
+        _stale = false;
+        _editing = user;
+        _form = ManagedUserEditorModel.From(user);
+        _editorOpen = true;
+    });
+
+    private Task BeginPassword(Guid id) => Run(async () =>
+    {
+        var user = await UsersService.GetAsync(id);
+
+        if (IsDisposed)
+            return;
+
+        _pending = user;
+        _password = new();
+        _stale = false;
+        _passwordOpen = true;
+    });
+
+    private Task BeginStatus(Guid id) => Run(async () =>
+    {
+        var user = await UsersService.GetAsync(id);
+
+        if (IsDisposed)
+            return;
+
+        _pending = user;
+        _stale = false;
+        _statusOpen = true;
+    });
+
+    private async Task Write(Func<Task> action)
+    {
+        try
+        {
+            await action();
+        }
+        catch (ConsoleApiException error) when (error.StatusCode == 409)
+        {
+            // تکرار خودکار یک write ممکن است داده جدید دیگری را بازنویسی کند.
+            _stale = true;
+            throw;
+        }
     }
 
     private Task Save() => Run(async () =>
     {
-        var self = _editing?.UserId == _self;
+        var selfEdit = _editing?.UserId == _self;
 
-        if (_editing is null)
+        await Write(async () =>
         {
-            await Api.WriteAsync(
-                HttpMethod.Post,
-                "api/admin/users",
-                new CreateUserInput
-                {
-                    FirstName = _input.FirstName,
-                    LastName = _input.LastName,
-                    OrganizationalCode = _input.OrganizationalCode,
-                    NationalId = _input.NationalId,
-                    Email = _input.Email,
-                    Mobile = _input.Mobile,
-                    Password = _password
-                }
-            );
-        }
-        else
-        {
-            await Api.WriteAsync(
-                HttpMethod.Put,
-                $"api/admin/users/{_editing.UserId}",
-                new UpdateUserInput
-                {
-                    FirstName = _input.FirstName,
-                    LastName = _input.LastName,
-                    OrganizationalCode = _input.OrganizationalCode,
-                    NationalId = _input.NationalId,
-                    Email = _input.Email,
-                    Mobile = _input.Mobile,
-                    ConcurrencyStamp = _editing.ConcurrencyStamp
-                }
-            );
-        }
+            if (_editing is null)
+            {
+                await UsersService.CreateAsync(_form.ToCreate());
+            }
+            else
+            {
+                await UsersService.UpdateAsync(
+                    _editing.UserId,
+                    _form.ToUpdate(_editing.ConcurrencyStamp));
+            }
+        });
 
-        New();
+        if (IsDisposed)
+            return;
 
-        if (self)
+        EditorVisibilityChanged(false);
+        Snackbar.Add("اطلاعات کاربر ذخیره شد.", Severity.Success);
+
+        if (selfEdit)
         {
             Navigation.NavigateTo(
                 "/account/login?returnUrl=/console/users",
-                forceLoad: true
-            );
+                forceLoad: true);
+
             return;
         }
 
-        await Load();
-    }, "اطلاعات ذخیره شد.");
-
-    private Task Toggle() => Run(async () =>
-    {
-        var user = _pending!;
-
-        await Api.WriteAsync(
-            HttpMethod.Put,
-            $"api/admin/users/{user.UserId}/active",
-            new ActiveUserInput(!user.IsActive, user.ConcurrencyStamp)
-        );
-
-        _pending = null;
-        await Load();
-    }, "وضعیت حساب تغییر کرد.");
+        await ReloadAfterSave(() => Load());
+    }, writing: true);
 
     private Task ResetPassword() => Run(async () =>
     {
-        await Api.WriteAsync(
-            HttpMethod.Post,
-            $"api/admin/users/{_editing!.UserId}/reset-password",
-            new AdminPasswordInput(_password)
-        );
+        var user = _pending ??
+            throw new ValidationException("کاربری انتخاب نشده است.");
 
-        _password = "";
-        New();
-        await Load();
-    }, "گذرواژهٔ موقت تعیین شد.");
+        await Write(() => UsersService.ResetPasswordAsync(
+            user.UserId,
+            _password.Password));
+
+        if (IsDisposed)
+            return;
+
+        PasswordVisibilityChanged(false);
+        Snackbar.Add("گذرواژهٔ موقت ثبت شد.", Severity.Success);
+
+        await ReloadAfterSave(() => Load());
+    }, writing: true);
+
+    private Task ToggleStatus() => Run(async () =>
+    {
+        var user = _pending ??
+            throw new ValidationException("کاربری انتخاب نشده است.");
+
+        await Write(() => UsersService.SetActiveAsync(user));
+
+        if (IsDisposed)
+            return;
+
+        StatusVisibilityChanged(false);
+        Snackbar.Add("وضعیت حساب تغییر کرد.", Severity.Success);
+
+        await ReloadAfterSave(() => Load());
+    }, writing: true);
+
+    private void EditorVisibilityChanged(bool visible)
+    {
+        _editorOpen = visible;
+
+        if (!visible)
+        {
+            _editing = null;
+            _form = new();
+            _stale = false;
+            Error = null;
+        }
+    }
+
+    private void PasswordVisibilityChanged(bool visible)
+    {
+        _passwordOpen = visible;
+
+        if (!visible)
+        {
+            _password = new();
+            _pending = null;
+            _stale = false;
+            Error = null;
+        }
+    }
+
+    private void StatusVisibilityChanged(bool visible)
+    {
+        _statusOpen = visible;
+
+        if (!visible)
+        {
+            _pending = null;
+            _stale = false;
+            Error = null;
+        }
+    }
 }

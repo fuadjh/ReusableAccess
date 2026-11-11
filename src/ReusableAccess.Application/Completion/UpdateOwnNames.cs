@@ -1,31 +1,41 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using MediatR;
+using ReusableAccess.Application.Users;
 using ReusableAccess.Contracts;
 
 namespace ReusableAccess.Application.Completion;
 
 public sealed record UpdateOwnNames(
-    Guid UserId, UpdateOwnNamesInput Input) : IRequest<bool>;
+    Guid UserId,
+    UpdateOwnNamesInput Input) : IRequest<bool>;
 
 public sealed class UpdateOwnNamesHandler(
-    ICompletionStore store,
+    IManagedUserReadStore store,
     ISender sender) : IRequestHandler<UpdateOwnNames, bool>
 {
-    public async Task<bool> Handle(UpdateOwnNames request, CancellationToken ct)
+    public async Task<bool> Handle(
+        UpdateOwnNames request,
+        CancellationToken ct)
     {
         var errors = new List<ValidationResult>();
+
         if (!Validator.TryValidateObject(
                 request.Input,
                 new ValidationContext(request.Input),
-                errors, true))
+                errors,
+                true))
         {
-            throw new CompletionException(400,
+            throw new CompletionException(
+                400,
                 string.Join(" ", errors.Select(x => x.ErrorMessage)));
         }
 
-        var current = await store.CurrentUserAsync(request.UserId, ct);
+        var current = await store.CurrentUserAsync(
+            request.UserId,
+            ct);
 
-        // اطلاعات حفاظت‌شده از سرور می‌آید، نه از بدنهٔ درخواست کاربر.
+        // فقط نام و نام خانوادگی از درخواست کاربر دریافت می‌شود.
+        // سایر مشخصات از وضعیت معتبر سمت سرور خوانده می‌شوند.
         var input = new UpdateUserInput
         {
             FirstName = request.Input.FirstName.Trim(),
@@ -34,11 +44,18 @@ public sealed class UpdateOwnNamesHandler(
             OrganizationalCode = current.OrganizationalCode,
             Email = current.Email,
             Mobile = current.Mobile,
+
+            // نسخه‌ای که کاربر هنگام مشاهده فرم داشته است حفظ می‌شود.
+            // استفاده از current.ConcurrencyStamp می‌تواند تعارض را پنهان کند.
             ConcurrencyStamp = request.Input.ConcurrencyStamp
         };
 
-        // مسیر قواعد موجود، اعتبارسنجی و کنترل هم‌زمانی حفظ می‌شود.
+        // قواعد و کنترل هم‌زمانی از مسیر Command کاربران اجرا می‌شوند.
         return await sender.Send(
-            new UpdateManagedUser(request.UserId, request.UserId, input), ct);
+            new UpdateManagedUser(
+                request.UserId,
+                request.UserId,
+                input),
+            ct);
     }
 }

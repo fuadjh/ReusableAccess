@@ -1,0 +1,97 @@
+﻿@using MudBlazor
+<MudGrid>
+    <MudItem xs="12" sm="6">
+        <div data-testid="user-first-name">
+            <MudTextField T="string"
+                          @bind-Value="Model.FirstName"
+                          For="@(() => Model.FirstName)"
+                          Label="نام"
+                          Immediate="true"
+                          MaxLength="100"
+                          Variant="Variant.Outlined" />
+        </div>
+    </MudItem>
+
+    <MudItem xs="12" sm="6">
+        <div data-testid="user-last-name">
+            <MudTextField T="string"
+                          @bind-Value="Model.LastName"
+                          For="@(() => Model.LastName)"
+                          Label="نام خانوادگی"
+                          Immediate="true"
+                          MaxLength="100"
+                          Variant="Variant.Outlined" />
+        </div>
+    </MudItem>
+
+    <MudItem xs="12" sm="6">
+        <div data-testid="user-organizational-code">
+            <MudTextField T="string"
+                          @bind-Value="Model.OrganizationalCode"
+                          For="@(() => Model.OrganizationalCode)"
+                          Label="کد سازمانی"
+                          Immediate="true"
+                          MaxLength="50"
+                          Variant="Variant.Outlined" />
+        </div>
+    </MudItem>
+
+    <MudItem xs="12" sm="6">
+        <div data-testid="user-national-id">
+            <MudTextField T="string"
+                          @bind-Value="Model.NationalId"
+                          For="@(() => Model.NationalId)"
+                          Label="کد ملی / نام کاربری"
+                          ReadOnly="@Model.NationalIdReadOnly"
+                          Immediate="true"
+                          Variant="Variant.Outlined" />
+        </div>
+    </MudItem>
+
+    <MudItem xs="12" sm="6">
+        <div data-testid="user-email">
+            <MudTextField T="string"
+                          @bind-Value="Model.Email"
+                          For="@(() => Model.Email)"
+                          Label="ایمیل"
+                          InputType="InputType.Email"
+                          Immediate="true"
+                          MaxLength="256"
+                          Variant="Variant.Outlined" />
+        </div>
+    </MudItem>
+
+    <MudItem xs="12" sm="6">
+        <div data-testid="user-mobile">
+            <MudTextField T="string"
+                          @bind-Value="Model.Mobile"
+                          For="@(() => Model.Mobile)"
+                          Label="موبایل"
+                          Immediate="true"
+                          MaxLength="30"
+                          Variant="Variant.Outlined" />
+        </div>
+    </MudItem>
+
+    @if (Model.IsNew)
+    {
+        <MudItem xs="12">
+            <div data-testid="user-initial-password">
+                <MudTextField T="string"
+                              @bind-Value="Model.Password"
+                              For="@(() => Model.Password)"
+                              Label="گذرواژهٔ موقت"
+                              InputType="InputType.Password"
+                              Immediate="true"
+                              MaxLength="128"
+                              Variant="Variant.Outlined"
+                              HelperText="حداقل ۱۲ کاراکتر؛ در اولین ورود باید تغییر کند." />
+            </div>
+        </MudItem>
+    }
+</MudGrid>
+
+@code {
+    [Parameter, EditorRequired]
+    public ManagedUserEditorModel Model { get; set; } = new();
+}

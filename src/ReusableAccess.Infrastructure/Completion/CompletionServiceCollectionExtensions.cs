@@ -5,10 +5,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Users;
 using ReusableAccess.Contracts;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Infrastructure.Completion;
 using ReusableAccess.Infrastructure.Persistence;
+using ReusableAccess.Infrastructure.Users;
 
 namespace ReusableAccess.Infrastructure;
 
@@ -76,6 +78,17 @@ public static class CompletionServiceCollectionExtensions
         services.AddTransient(
             typeof(IPipelineBehavior<,>),
             typeof(CompletionConcurrencyBehavior<,>));
+
+        services.AddScoped<IManagedUserReadStore, ManagedUserReadStore>();
+
+        // دو قرارداد، یک نمونه scoped مشترک از پیاده‌سازی نوشتن.
+        services.AddScoped<ManagedUserCommandStore>();
+
+        services.AddScoped<IManagedUserCommandStore>(
+            provider => provider.GetRequiredService<ManagedUserCommandStore>());
+
+        services.AddScoped<IUserRegistrationStore>(
+            provider => provider.GetRequiredService<ManagedUserCommandStore>());
 
         return services;
     }
