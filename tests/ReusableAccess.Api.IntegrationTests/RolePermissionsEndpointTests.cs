@@ -244,9 +244,7 @@ internal sealed class RolePermissionsTestHost : IAsyncDisposable
             IRolePermissionsQueryStore,
             RolePermissionsQueryStore>();
 
-        builder.Services.AddScoped<
-            IRolePermissionsCommandStore,
-            RolePermissionsCommandStore>();
+        builder.Services.AddScoped< IRolePermissionsRepository,RolePermissionsRepository>();
 
         var application = builder.Build();
         var roleId = Guid.NewGuid();

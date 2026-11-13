@@ -322,9 +322,7 @@ public sealed class CompletionAuthorizationTests
                 IScopeReadStore,
                 ScopeReadStore>();
 
-            builder.Services.AddScoped<
-                IScopeCommandStore,
-                ScopeCommandStore>();
+            builder.Services.AddScoped<IScopeRepository, ScopeRepository>();
 
             builder.Services.AddScoped<
                 IScopeDeletionStore,

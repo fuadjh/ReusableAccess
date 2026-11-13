@@ -185,9 +185,7 @@ internal sealed class AdminBundlesTestHost : IAsyncDisposable
 
         builder.Services.AddApplication();
 
-        builder.Services.AddScoped<
-            IUserBundleCommandStore,
-            UserBundleCommandStore>();
+        builder.Services.AddScoped<IUserBundleRepository, UserBundleRepository>();
 
         var application = builder.Build();
         var userId = Guid.NewGuid();
