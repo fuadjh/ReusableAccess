@@ -54,7 +54,7 @@ public static class DependencyInjection
         services.AddScoped<IAccessProfilesReadStore, AccessProfilesReadStore>();
         services.AddScoped<IAccessProfilePreferenceStore, AccessProfilePreferenceStore>();
         services.AddScoped<IRoleReadStore, RoleReadStore>();
-        services.AddScoped<IRoleCommandStore, RoleCommandStore>();
+        services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IScopeReadStore, ScopeReadStore>();
         services.AddScoped<IScopeCommandStore, ScopeCommandStore>();
         services.AddScoped<IScopeDeletionStore, ScopeDeletionStore>();

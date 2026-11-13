@@ -164,7 +164,7 @@ internal sealed class RoleAndScopeTestHost : IAsyncDisposable
         builder.Services.AddApplication();
 
         builder.Services.AddScoped<IRoleReadStore, RoleReadStore>();
-        builder.Services.AddScoped<IRoleCommandStore, RoleCommandStore>();
+        builder.Services.AddScoped<IRoleRepository, RoleRepository>();
         builder.Services.AddScoped<IScopeReadStore, ScopeReadStore>();
         builder.Services.AddScoped<IScopeCommandStore, ScopeCommandStore>();
         builder.Services

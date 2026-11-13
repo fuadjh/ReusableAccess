@@ -12,6 +12,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ReusableAccess.Api.IntegrationTests/ReusableAccess.Api.IntegrationTests.csproj" />
+    <Project Path="tests/ReusableAccess.Application.Tests.csproj/ReusableAccess.Application.Tests.csproj" Id="4f3c909b-141a-494e-bdc9-3019744f3247" />
     <Project Path="tests/ReusableAccess.Domain.Tests/ReusableAccess.Domain.Tests.csproj" />
     <Project Path="tests/ReusableAccess.Infrastructure.Tests/ReusableAccess.Infrastructure.Tests.csproj" />
     <Project Path="tests/ReusableAccess.Web.Tests/ReusableAccess.Web.Tests.csproj" Id="7225d448-5111-4c50-9f92-26a099af6bdc" />

@@ -330,7 +330,7 @@ internal sealed class ApiTestHost : IAsyncDisposable
         builder.Services.AddScoped<  IAccessProfilesReadStore,AccessProfilesReadStore>();
         builder.Services.AddScoped<  IAccessProfilePreferenceStore, AccessProfilePreferenceStore>();
         builder.Services.AddScoped<IRoleReadStore, RoleReadStore>();
-        builder.Services.AddScoped<IRoleCommandStore, RoleCommandStore>();
+        builder.Services.AddScoped<IRoleRepository, RoleRepository>();
         builder.Services.AddScoped<IScopeReadStore, ScopeReadStore>();
         builder.Services.AddScoped<IScopeCommandStore, ScopeCommandStore>();
         builder.Services.AddScoped<    IWorkItemsQueryStore,    WorkItemsQueryStore>();
