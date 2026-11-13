@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using ReusableAccess.Application.Persistence;
 using ReusableAccess.Domain.Entities;
 
 namespace ReusableAccess.Application.Roles;
@@ -19,19 +20,13 @@ public sealed class CreateRoleCommandHandler(
     : IRequestHandler<CreateRoleCommand, RoleCreationResult>
 {
     public async Task<RoleCreationResult> Handle(
-        CreateRoleCommand request,
-        CancellationToken cancellationToken)
+     CreateRoleCommand request,
+     CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        // ساخت موجودیت در Application هماهنگ می‌شود.
-        // اعتبار و نرمال‌سازی داخلی همچنان مسئولیت Domain است.
-        var role = new Role(
-            request.Code,
-            request.DisplayName);
+        var role = new Role(request.Code, request.DisplayName);
 
-        // بررسی تکرار بر اساس همان Code انجام می‌شود
-        // که موجودیت قرار است ذخیره کند.
         var alreadyExists = await roles.ExistsByCodeAsync(
             role.Code,
             cancellationToken);
@@ -47,8 +42,22 @@ public sealed class CreateRoleCommandHandler(
 
         roles.Add(role);
 
-        await roles.SaveChangesAsync(
-            cancellationToken);
+        try
+        {
+            await roles.SaveChangesAsync(cancellationToken);
+        }
+        catch (DuplicateCodeException error) when (
+            error.Owner == CodeOwner.Role
+            && error.Code == role.Code)
+        {
+            // همان نتیجهٔ قبلی؛ مستقل از اینکه برخورد در Query دیده شده
+            // یا پس از آن، هنگام ذخیره اتفاق افتاده است.
+            return new RoleCreationResult(
+                AlreadyExists: true,
+                RoleId: null,
+                RoleCode: null,
+                DisplayName: null);
+        }
 
         return new RoleCreationResult(
             AlreadyExists: false,

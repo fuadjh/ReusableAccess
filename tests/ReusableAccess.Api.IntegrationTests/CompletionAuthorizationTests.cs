@@ -324,10 +324,7 @@ public sealed class CompletionAuthorizationTests
 
             builder.Services.AddScoped<IScopeRepository, ScopeRepository>();
 
-            builder.Services.AddScoped<
-                IScopeDeletionStore,
-                ScopeDeletionStore>();
-
+            
             builder.Services.AddCompletionInfrastructure();
             builder.Services.AddProblemDetails();
 

@@ -1,4 +1,5 @@
-﻿using ReusableAccess.Application.Scopes;
+﻿using ReusableAccess.Application.Persistence;
+using ReusableAccess.Application.Scopes;
 using ReusableAccess.Domain.Entities;
 using Xunit;
 using Assert = Xunit.Assert;
@@ -48,6 +49,25 @@ public sealed class ScopeCommandTests
         Assert.Null(repository.CheckedParentId);
         Assert.Null(repository.Added);
         Assert.Equal(0, repository.SaveCalls);
+    }
+
+    [Fact]
+    public async Task Create_maps_duplicate_detected_during_save()
+    {
+        var repository = new FakeRepository
+        {
+            SaveFailure = new DuplicateCodeException(
+                CodeOwner.Scope,
+                "clinic")
+        };
+
+        var result = await new CreateScopeCommandHandler(repository).Handle(
+            new CreateScopeCommand(" clinic ", "Clinic", null),
+            CancellationToken.None);
+
+        Assert.Equal(ScopeCreationStatus.CodeConflict, result.Status);
+        Assert.Null(result.Data);
+        Assert.Equal(1, repository.SaveCalls);
     }
 
     [Fact]
@@ -117,6 +137,7 @@ public sealed class ScopeCommandTests
     private sealed class FakeRepository : IScopeRepository
     {
         public bool CodeExists { get; init; }
+        public Exception? SaveFailure { get; init; }
         public bool ParentExists { get; init; } = true;
         public AccessScope? Existing { get; init; }
         public AccessScope? Added { get; private set; }
@@ -156,7 +177,10 @@ public sealed class ScopeCommandTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             SaveCalls++;
-            return Task.CompletedTask;
+
+            return SaveFailure is null
+                ? Task.CompletedTask
+                : Task.FromException(SaveFailure);
         }
     }
 }

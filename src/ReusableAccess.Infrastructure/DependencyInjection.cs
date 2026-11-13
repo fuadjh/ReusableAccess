@@ -7,6 +7,7 @@ namespace ReusableAccess.Infrastructure;
 
 using Microsoft.AspNetCore.Identity;
 using ReusableAccess.Application.Bundles;
+using ReusableAccess.Application.Persistence;
 using ReusableAccess.Application.RolePermissions;
 using ReusableAccess.Application.Roles;
 using ReusableAccess.Application.Scopes;
@@ -59,9 +60,11 @@ public static class DependencyInjection
         services.AddScoped<IScopeRepository, ScopeRepository>();
 
         services.AddScoped<IUserBundleRepository, UserBundleRepository>();
+        services.AddScoped<IWriteTransactionFactory,EfWriteTransactionFactory>();
 
+        services.AddScoped<IScopeDeletionRepository,ScopeDeletionRepository>();
         services.AddScoped<  IRolePermissionsRepository, RolePermissionsRepository>();
-        services.AddScoped<IScopeDeletionStore, ScopeDeletionStore>();
+     
     
         services.AddScoped<IRolePermissionsQueryStore,RolePermissionsQueryStore>();
      

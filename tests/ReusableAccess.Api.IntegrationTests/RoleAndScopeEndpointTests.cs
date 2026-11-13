@@ -1,9 +1,4 @@
-﻿using System.Net;
-using System.Net.Http.Json;
-using System.Security.Claims;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using Microsoft.AspNetCore.Authentication;
+﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -14,11 +9,17 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ReusableAccess.Api.Endpoints;
 using ReusableAccess.Application;
+using ReusableAccess.Application.Persistence;
 using ReusableAccess.Application.Roles;
 using ReusableAccess.Application.Scopes;
 using ReusableAccess.Infrastructure.Persistence;
 using ReusableAccess.Infrastructure.Roles;
 using ReusableAccess.Infrastructure.Scopes;
+using System.Net;
+using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 
 namespace ReusableAccess.Api.IntegrationTests;
 
@@ -172,9 +173,9 @@ internal sealed class RoleAndScopeTestHost : IAsyncDisposable
     .AddApplicationPart(
         typeof(ReusableAccess.Api.Controllers.AdminScopesController).Assembly);
 
-        builder.Services.AddScoped<
-            IScopeDeletionStore,
-            ScopeDeletionStore>();
+        builder.Services.AddScoped<IWriteTransactionFactory,EfWriteTransactionFactory>();
+
+        builder.Services.AddScoped<IScopeDeletionRepository,ScopeDeletionRepository>();
         var application = builder.Build();
 
         await using (var scope = application.Services.CreateAsyncScope())

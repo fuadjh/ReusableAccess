@@ -1,11 +1,5 @@
-﻿using System.Net;
-using System.Net.Http.Json;
-using System.Security.Claims;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using Microsoft.AspNetCore.Authentication;
+﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +12,11 @@ using ReusableAccess.Application.RolePermissions;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Infrastructure.Persistence;
 using ReusableAccess.Infrastructure.RolePermissions;
+using System.Net;
+using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 
 namespace ReusableAccess.Api.IntegrationTests;
 
@@ -244,7 +243,7 @@ internal sealed class RolePermissionsTestHost : IAsyncDisposable
             IRolePermissionsQueryStore,
             RolePermissionsQueryStore>();
 
-        builder.Services.AddScoped< IRolePermissionsRepository,RolePermissionsRepository>();
+        builder.Services.AddScoped<IRolePermissionsRepository, RolePermissionsRepository>();
 
         var application = builder.Build();
         var roleId = Guid.NewGuid();

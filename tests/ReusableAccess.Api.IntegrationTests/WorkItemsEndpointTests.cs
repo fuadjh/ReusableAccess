@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -327,20 +326,20 @@ internal sealed class ApiTestHost : IAsyncDisposable
         builder.Services.AddReusableAccessAuthorization();
         builder.Services.AddApplication();
 
-        builder.Services.AddScoped<  IAccessProfilesReadStore,AccessProfilesReadStore>();
-        builder.Services.AddScoped<  IAccessProfilePreferenceStore, AccessProfilePreferenceStore>();
+        builder.Services.AddScoped<IAccessProfilesReadStore, AccessProfilesReadStore>();
+        builder.Services.AddScoped<IAccessProfilePreferenceStore, AccessProfilePreferenceStore>();
         builder.Services.AddScoped<IRoleReadStore, RoleReadStore>();
         builder.Services.AddScoped<IRoleRepository, RoleRepository>();
         builder.Services.AddScoped<IScopeReadStore, ScopeReadStore>();
         builder.Services.AddScoped<IScopeRepository, ScopeRepository>();
-        builder.Services.AddScoped<    IWorkItemsQueryStore,    WorkItemsQueryStore>();
+        builder.Services.AddScoped<IWorkItemsQueryStore, WorkItemsQueryStore>();
         var application = builder.Build();
 
         application.UseAuthentication();
         application.UseAuthorization();
         application.MapWorkItemsEndpoint();
         application.MapAccessProfilesEndpoint();
-         
+
         var assignedUserId = Guid.NewGuid();
         var userWithoutPermissionId = Guid.NewGuid();
         var bundleUserId = Guid.NewGuid();

@@ -39,10 +39,11 @@ public sealed class RoleRepository(
         dbContext.Roles.Add(role);
     }
 
-    public async Task SaveChangesAsync(
-        CancellationToken cancellationToken)
+    public Task SaveChangesAsync(
+     CancellationToken cancellationToken)
     {
-        await dbContext.SaveChangesAsync(
+        return PersistenceSaveChanges.SaveWithCodeConflictTranslationAsync(
+            dbContext,
             cancellationToken);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using MediatR;
+using ReusableAccess.Application.Persistence;
 using ReusableAccess.Domain.Entities;
 
 namespace ReusableAccess.Application.Scopes;
@@ -30,8 +31,8 @@ public sealed class CreateScopeCommandHandler(IScopeRepository repository)
     : IRequestHandler<CreateScopeCommand, ScopeCreationResult>
 {
     public async Task<ScopeCreationResult> Handle(
-        CreateScopeCommand request,
-        CancellationToken cancellationToken)
+      CreateScopeCommand request,
+      CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -69,7 +70,18 @@ public sealed class CreateScopeCommandHandler(IScopeRepository repository)
 
         repository.Add(scope);
 
-        await repository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await repository.SaveChangesAsync(cancellationToken);
+        }
+        catch (DuplicateCodeException error) when (
+            error.Owner == CodeOwner.Scope
+            && error.Code == scope.Code)
+        {
+            return new ScopeCreationResult(
+                ScopeCreationStatus.CodeConflict,
+                Data: null);
+        }
 
         return new ScopeCreationResult(
             ScopeCreationStatus.Created,

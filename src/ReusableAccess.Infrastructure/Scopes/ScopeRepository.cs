@@ -44,9 +44,11 @@ public sealed class ScopeRepository(ApplicationDbContext dbContext)
         dbContext.Set<AccessScope>().Add(scope);
     }
 
-    public async Task SaveChangesAsync(
-        CancellationToken cancellationToken)
+    public Task SaveChangesAsync(
+      CancellationToken cancellationToken)
     {
-        await dbContext.SaveChangesAsync(cancellationToken);
+        return PersistenceSaveChanges.SaveWithCodeConflictTranslationAsync(
+            dbContext,
+            cancellationToken);
     }
 }

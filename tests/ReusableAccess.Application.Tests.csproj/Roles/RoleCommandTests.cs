@@ -1,4 +1,5 @@
-﻿using ReusableAccess.Application.Roles;
+﻿using ReusableAccess.Application.Persistence;
+using ReusableAccess.Application.Roles;
 using ReusableAccess.Domain.Entities;
 using Xunit;
 
@@ -7,6 +8,50 @@ using Assert = Xunit.Assert;
 
 public sealed class RoleCommandTests
 {
+
+
+    [Fact]
+    public async Task Create_maps_duplicate_detected_during_save()
+    {
+        var repository = new FakeRoleRepository
+        {
+            SaveFailure = new DuplicateCodeException(
+                CodeOwner.Role,
+                "admin")
+        };
+
+        var result = await new CreateRoleCommandHandler(repository).Handle(
+            new CreateRoleCommand(" admin ", "Administrator"),
+            CancellationToken.None);
+
+        Assert.True(result.AlreadyExists);
+        Assert.Null(result.RoleId);
+        Assert.Null(result.RoleCode);
+        Assert.Null(result.DisplayName);
+        Assert.Equal(1, repository.SaveCalls);
+    }
+
+    [Fact]
+    public async Task Create_does_not_hide_unknown_save_failure()
+    {
+        var failure = new InvalidOperationException("Unexpected persistence failure");
+
+        var repository = new FakeRoleRepository
+        {
+            SaveFailure = failure
+        };
+
+        var actual = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () =>
+            {
+                await new CreateRoleCommandHandler(repository).Handle(
+                    new CreateRoleCommand("admin", "Administrator"),
+                    CancellationToken.None);
+            });
+
+        Assert.Same(failure, actual);
+    }
+
 
     [Fact]
     public async Task Create_does_not_access_repository_when_code_is_too_long()
@@ -203,7 +248,7 @@ public sealed class RoleCommandTests
     private sealed class FakeRoleRepository : IRoleRepository
     {
         public bool CodeExists { get; init; }
-
+        public Exception? SaveFailure { get; init; }
         public Role? ExistingRole { get; init; }
 
         public Role? AddedRole { get; private set; }
@@ -251,14 +296,16 @@ public sealed class RoleCommandTests
         }
 
         public Task SaveChangesAsync(
-            CancellationToken cancellationToken)
+    CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             SaveToken = cancellationToken;
             SaveCalls++;
 
-            return Task.CompletedTask;
+            return SaveFailure is null
+                ? Task.CompletedTask
+                : Task.FromException(SaveFailure);
         }
     }
 }
