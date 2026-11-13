@@ -7,6 +7,49 @@ using Assert = Xunit.Assert;
 
 public sealed class RoleCommandTests
 {
+
+    [Fact]
+    public async Task Create_does_not_access_repository_when_code_is_too_long()
+    {
+        var repository = new FakeRoleRepository();
+        var handler = new CreateRoleCommandHandler(repository);
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            async () =>
+            {
+                await handler.Handle(
+                    new CreateRoleCommand(
+                        new string('c', Role.CodeMaxLength + 1),
+                        "Administrator"),
+                    CancellationToken.None);
+            });
+
+        Assert.Null(repository.CheckedCode);
+        Assert.Null(repository.AddedRole);
+        Assert.Equal(0, repository.SaveCalls);
+    }
+
+    [Fact]
+    public async Task Create_does_not_access_repository_when_name_is_too_long()
+    {
+        var repository = new FakeRoleRepository();
+        var handler = new CreateRoleCommandHandler(repository);
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            async () =>
+            {
+                await handler.Handle(
+                    new CreateRoleCommand(
+                        "admin",
+                        new string('n', Role.DisplayNameMaxLength + 1)),
+                    CancellationToken.None);
+            });
+
+        Assert.Null(repository.CheckedCode);
+        Assert.Null(repository.AddedRole);
+        Assert.Equal(0, repository.SaveCalls);
+    }
+
     [Fact]
     public async Task Create_checks_and_saves_normalized_code()
     {
