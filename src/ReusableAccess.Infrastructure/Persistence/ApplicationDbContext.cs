@@ -1,26 +1,20 @@
-﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Domain.Entities;
+using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.Persistence.Configurations;
 namespace ReusableAccess.Infrastructure.Persistence;
-
-public sealed class ApplicationDbContext
-    : IdentityUserContext<ApplicationUser, Guid>
+public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : IdentityUserContext<ApplicationUser, Guid>(options)
 {
-   
-    public ApplicationDbContext(
-        DbContextOptions<ApplicationDbContext> options)
-        : base(options)
-    {
-    }
     public DbSet<Role> Roles => Set<Role>();
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        Completion.CompletionModel.Configure(modelBuilder);
-        //==============Configuration============================
+        // نبود تغییر Schema باید با تست مدل تأیید شود، نه با حدس از روی نام فایل‌ها.
+        modelBuilder.ApplyConfiguration(new ApplicationUserConfiguration());
+        modelBuilder.ApplyConfiguration(new AuthenticationPolicyConfiguration());
+        modelBuilder.ApplyConfiguration(new AccountChallengeConfiguration());
+        modelBuilder.ApplyConfiguration(new SecurityAuditEntryConfiguration());
         modelBuilder.ApplyConfiguration(new RoleConfiguration());
         modelBuilder.ApplyConfiguration(new PermissionConfiguration());
         modelBuilder.ApplyConfiguration(new RolePermissionConfiguration());
@@ -30,20 +24,5 @@ public sealed class ApplicationDbContext
         modelBuilder.ApplyConfiguration(new UserAccessBundleConfiguration());
         modelBuilder.ApplyConfiguration(new UserAccessBundleRoleConfiguration());
         modelBuilder.ApplyConfiguration(new UserAccessBundleScopeConfiguration());
-        //=======================================================
-        modelBuilder.Entity<ApplicationUser>(entity =>
-        {
-            entity.Property(user => user.NationalId)
-                .HasMaxLength(50)
-                .IsRequired();
-
-            entity.Property(user => user.DisplayName)
-                .HasMaxLength(200)
-                .IsRequired();
-
-            entity.HasIndex(user => user.NationalId)
-                .IsUnique();
-        });
     }
-
 }
