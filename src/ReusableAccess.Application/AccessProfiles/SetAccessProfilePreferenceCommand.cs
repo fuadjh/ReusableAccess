@@ -16,9 +16,3 @@ public sealed record AccessProfilePreferenceSelection(
     Guid RoleId,
     Guid? ScopeId);
 
-public interface IAccessProfilePreferenceStore
-{
-    Task<AccessProfilePreferenceSelection?> SaveAsync(
-        SetAccessProfilePreferenceCommand command,
-        CancellationToken cancellationToken);
-}

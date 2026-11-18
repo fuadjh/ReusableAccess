@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 
 namespace ReusableAccess.Application.Scopes;
 
@@ -9,9 +9,3 @@ public sealed record ScopeListItem(
     string ScopeCode,
     string DisplayName,
     Guid? ParentScopeId);
-
-public interface IScopeReadStore
-{
-    Task<IReadOnlyList<ScopeListItem>> ListAsync(
-        CancellationToken cancellationToken);
-}

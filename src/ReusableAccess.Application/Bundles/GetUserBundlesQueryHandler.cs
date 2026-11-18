@@ -1,9 +1,9 @@
-﻿using MediatR;
+using MediatR;
 
 namespace ReusableAccess.Application.Bundles;
 
 public sealed class GetUserBundlesQueryHandler(
-    IUserBundlesQueryStore store)
+    IUserBundleQueries queries)
     : IRequestHandler<
         GetUserBundlesQuery,
         IReadOnlyList<AdminBundleDetails>?>
@@ -12,7 +12,7 @@ public sealed class GetUserBundlesQueryHandler(
         GetUserBundlesQuery request,
         CancellationToken cancellationToken)
     {
-        return store.GetForUserAsync(
+        return queries.GetForUserAsync(
             request.UserId,
             cancellationToken);
     }

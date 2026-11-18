@@ -1,9 +1,9 @@
-﻿using MediatR;
+using MediatR;
 
 namespace ReusableAccess.Application.AccessProfiles;
 
 public sealed class GetAccessProfilesQueryHandler(
-    IAccessProfilesReadStore readStore)
+    IAccessProfileQueries readStore)
     : IRequestHandler<GetAccessProfilesQuery, AccessProfilesResult?>
 {
     public async Task<AccessProfilesResult?> Handle(

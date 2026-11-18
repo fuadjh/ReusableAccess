@@ -1,8 +1,8 @@
-﻿using MediatR;
+using MediatR;
 
 namespace ReusableAccess.Application.Roles;
 
-public sealed class GetRolesQueryHandler(IRoleReadStore readStore)
+public sealed class GetRolesQueryHandler(IRoleQueries readStore)
     : IRequestHandler<GetRolesQuery, IReadOnlyList<RoleListItem>>
 {
     public Task<IReadOnlyList<RoleListItem>> Handle(

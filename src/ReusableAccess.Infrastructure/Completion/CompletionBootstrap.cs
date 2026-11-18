@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Users;
 using ReusableAccess.Contracts;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Domain.Enums;
@@ -40,7 +41,7 @@ public static class CompletionBootstrap
             Mobile = config["BootstrapAdmin:Mobile"] ?? ""
         };
 
-        CompletionValidation.Profile(input);
+        UserProfileValidation.Profile(input);
 
         var national = IdentityRules.NormalizeDigits(input.NationalId);
         var legacyName = config["PlatformSuperAdmin:UserName"];

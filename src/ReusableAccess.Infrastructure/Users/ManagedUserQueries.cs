@@ -1,15 +1,15 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Application.Completion;
 using ReusableAccess.Application.Users;
 using ReusableAccess.Contracts;
 using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.Persistence;
-
+using ReusableAccess.Application.Errors;
 namespace ReusableAccess.Infrastructure.Users;
 
-public sealed class ManagedUserReadStore(ApplicationDbContext db)
-    : IManagedUserReadStore
+public sealed class ManagedUserQueries(ApplicationDbContext db)
+    : IManagedUserQueries
 {
     private const int PageSize = 20;
 
@@ -74,5 +74,5 @@ public sealed class ManagedUserReadStore(ApplicationDbContext db)
             .Where(user => user.Id == userId)
             .Select(Projection)
             .SingleOrDefaultAsync(cancellationToken)
-            ?? throw new CompletionException(404, "کاربر پیدا نشد.");
+            ?? throw new UseCaseException(404, "کاربر پیدا نشد.");
 }

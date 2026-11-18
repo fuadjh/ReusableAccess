@@ -75,7 +75,7 @@ internal sealed class UserManagementTestHost : IAsyncDisposable
             builder.Services.AddApplication();
             builder.Services.AddControllers()
                 .AddApplicationPart(typeof(AdminUsersController).Assembly);
-            builder.Services.AddCompletionInfrastructure();
+            builder.Services.AddAccessFeaturesInfrastructure();
             builder.Services.AddProblemDetails();
             builder.Services.AddReusableAccessAuthorization();
             builder.Services.AddReusableAccessApiAuthorization();

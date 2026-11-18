@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Errors;
 using ReusableAccess.Application.Users;
 using ReusableAccess.Contracts;
 using ReusableAccess.Domain.Entities;
@@ -24,14 +25,14 @@ public sealed class ManagedUserCommandStore(
 
     private async Task<ApplicationUser> User(Guid id, CancellationToken ct)
         => await db.Users.SingleOrDefaultAsync(x => x.Id == id, ct)
-           ?? throw new CompletionException(404, "کاربر پیدا نشد.");
+           ?? throw new UseCaseException(404, "کاربر پیدا نشد.");
 
     
   
     private async Task<Guid> CreateUserAsync(
         CreateUserInput input, bool temporary, CancellationToken ct)
     {
-        CompletionValidation.Profile(input);
+        UserProfileValidation.Profile(input);
 
         await using var tx = await db.Database
             .BeginTransactionAsync(IsolationLevel.Serializable, ct);
@@ -43,14 +44,14 @@ public sealed class ManagedUserCommandStore(
                 .SingleAsync(x => x.Id == 1, ct);
 
             if (!policy.IsRegistrationOpen(time.GetUtcNow()))
-                throw new CompletionException(
+                throw new UseCaseException(
                     403, "ثبت‌نام عمومی در این زمان فعال نیست.");
         }
 
         var national = IdentityRules.NormalizeDigits(input.NationalId);
 
         if (await db.Users.AnyAsync(x => x.NationalId == national, ct))
-            throw new CompletionException(409, "کد ملی قبلاً ثبت شده است.");
+            throw new UseCaseException(409, "کد ملی قبلاً ثبت شده است.");
 
         var user = new ApplicationUser
         {
@@ -78,11 +79,11 @@ public sealed class ManagedUserCommandStore(
     private async Task<bool> UpdateCoreAsync(
         Guid actor, Guid id, UpdateUserInput input, CancellationToken ct)
     {
-        CompletionValidation.Profile(input);
+        UserProfileValidation.Profile(input);
         var user = await User(id, ct);
 
         if (user.ConcurrencyStamp != input.ConcurrencyStamp)
-            throw new CompletionException(
+            throw new UseCaseException(
                 409, "اطلاعات هم‌زمان تغییر کرده؛ دوباره دریافت کنید.");
 
         var national = IdentityRules.NormalizeDigits(input.NationalId);
@@ -91,12 +92,12 @@ public sealed class ManagedUserCommandStore(
         {
             // فقط شناسهٔ نامعتبرِ دادهٔ قدیمی قابل اصلاح است.
             if (IdentityRules.IsValidNationalId(user.NationalId))
-                throw new CompletionException(
+                throw new UseCaseException(
                     400, "کد ملی معتبر پس از ایجاد قابل تغییر نیست.");
 
             if (await db.Users.AnyAsync(
                     x => x.Id != id && x.NationalId == national, ct))
-                throw new CompletionException(409, "کد ملی قبلاً ثبت شده است.");
+                throw new UseCaseException(409, "کد ملی قبلاً ثبت شده است.");
 
             user.NationalId = national;
             user.SessionVersion++;
@@ -143,12 +144,12 @@ public sealed class ManagedUserCommandStore(
         var user = await User(id, ct);
 
         if (user.ConcurrencyStamp != input.ConcurrencyStamp)
-            throw new CompletionException(409, "اطلاعات کاربر تغییر کرده است.");
+            throw new UseCaseException(409, "اطلاعات کاربر تغییر کرده است.");
 
         if (!input.IsActive)
         {
             if (actor == id)
-                throw new CompletionException(
+                throw new UseCaseException(
                     409, "غیرفعال‌سازی حساب جاری مجاز نیست.");
 
             if (user.IsPlatformSuperAdmin &&
@@ -156,7 +157,7 @@ public sealed class ManagedUserCommandStore(
                     x => x.Id != id && x.IsActive &&
                          x.IsPlatformSuperAdmin, ct))
             {
-                throw new CompletionException(
+                throw new UseCaseException(
                     409, "آخرین ادمین فعال قابل غیرفعال‌سازی نیست.");
             }
         }
@@ -173,11 +174,11 @@ public sealed class ManagedUserCommandStore(
         Guid actor, Guid id, string password, CancellationToken ct)
     {
         if (actor == id)
-            throw new CompletionException(
+            throw new UseCaseException(
                 400, "برای حساب خودتان از تغییر گذرواژه استفاده کنید.");
 
         if (string.IsNullOrEmpty(password) || password.Length > 128)
-            throw new CompletionException(400, "طول گذرواژه معتبر نیست.");
+            throw new UseCaseException(400, "طول گذرواژه معتبر نیست.");
 
         var user = await User(id, ct);
         user.MustChangePassword = true;

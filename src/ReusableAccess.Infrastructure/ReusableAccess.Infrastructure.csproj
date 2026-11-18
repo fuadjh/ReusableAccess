@@ -9,6 +9,10 @@
   <ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />
 	</ItemGroup>
+
+  <ItemGroup>
+    <None Include="WorkItems\WorkItemsQueries.cs" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ReusableAccess.Application\ReusableAccess.Application.csproj" />
     <ProjectReference Include="..\ReusableAccess.Domain\ReusableAccess.Domain.csproj" />

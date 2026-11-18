@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 
 namespace ReusableAccess.Application.Users;
 
@@ -9,10 +9,3 @@ public sealed record AdminUserSearchResult(
     Guid UserId,
     string? UserName,
     string DisplayName);
-
-public interface IUserSearchStore
-{
-    Task<IReadOnlyList<AdminUserSearchResult>> SearchAsync(
-        string search,
-        CancellationToken cancellationToken);
-}

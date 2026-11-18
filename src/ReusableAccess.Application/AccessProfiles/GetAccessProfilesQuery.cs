@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 
 namespace ReusableAccess.Application.AccessProfiles;
 
@@ -25,10 +25,3 @@ public sealed record AccessProfilesSnapshot(
     Guid? LastSelectedAccessRoleId,
     Guid? LastSelectedAccessScopeId,
     IReadOnlyList<AccessProfileItem> Profiles);
-
-public interface IAccessProfilesReadStore
-{
-    Task<AccessProfilesSnapshot?> GetAsync(
-        Guid userId,
-        CancellationToken cancellationToken);
-}

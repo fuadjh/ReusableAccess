@@ -23,10 +23,3 @@ public sealed record RolePermissionReadModel(
     string Description,
     bool IsSelected);
 
-public interface IRolePermissionsQueryStore
-{
-    Task<RolePermissionsReadModel?> GetAsync(
-        Guid roleId,
-        string? search,
-        CancellationToken cancellationToken);
-}

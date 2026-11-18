@@ -1,9 +1,9 @@
-﻿using MediatR;
+using MediatR;
 
 namespace ReusableAccess.Application.WorkItems;
 
 public sealed class GetWorkItemsQueryHandler(
-    IWorkItemsQueryStore store)
+    IWorkItemsQueries store)
     : IRequestHandler<
         GetWorkItemsQuery,
         IReadOnlyList<WorkItemSummary>?>

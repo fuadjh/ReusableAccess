@@ -1,12 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Application.Scopes;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Infrastructure.Persistence;
 
 namespace ReusableAccess.Infrastructure.Scopes;
 
-public sealed class ScopeReadStore(
-    ApplicationDbContext dbContext) : IScopeReadStore
+public sealed class ScopeQueries(
+    ApplicationDbContext dbContext) : IScopeQueries
 {
     public async Task<IReadOnlyList<ScopeListItem>> ListAsync(
         CancellationToken cancellationToken)

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Application.WorkItems;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Domain.Enums;
@@ -6,8 +6,8 @@ using ReusableAccess.Infrastructure.Persistence;
 
 namespace ReusableAccess.Infrastructure.WorkItems;
 
-public sealed class WorkItemsQueryStore(
-    ApplicationDbContext dbContext) : IWorkItemsQueryStore
+public sealed class WorkItemsQueries(
+    ApplicationDbContext dbContext) : IWorkItemsQueries
 {
     public async Task<IReadOnlyList<WorkItemSummary>?> GetAsync(
      ScopeSelectionMode scopeMode,

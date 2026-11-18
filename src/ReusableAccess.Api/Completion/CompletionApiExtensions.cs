@@ -9,18 +9,20 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using OpenIddict.Abstractions;
 using OpenIddict.Validation.AspNetCore;
+using ReusableAccess.Application.Accounts;
 using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Errors;
 using ReusableAccess.Contracts;
 using ReusableAccess.Infrastructure.Authorization;
 
 namespace ReusableAccess.Api.Completion;
 
-public sealed class CompletionExceptionHandler : IExceptionHandler
+public sealed class UseCaseExceptionHandler : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
         HttpContext context, Exception error, CancellationToken ct)
     {
-        if (error is not CompletionException known)
+        if (error is not UseCaseException known)
             return false;
 
         await Results.Problem(
@@ -39,7 +41,7 @@ public static class CompletionApiExtensions
     {
         services.AddRazorComponents();
         services.AddAntiforgery();
-        services.AddExceptionHandler<CompletionExceptionHandler>();
+        services.AddExceptionHandler<UseCaseExceptionHandler>();
 
         services.AddRateLimiter(o =>
         {
@@ -180,7 +182,7 @@ public static class CompletionApiExtensions
     public static Guid Subject(HttpContext context)
         => Guid.TryParse(context.User.FindFirst("sub")?.Value, out var id)
             ? id
-            : throw new CompletionException(401, "ورود لازم است.");
+            : throw new UseCaseException(401, "ورود لازم است.");
 
     private static string Mode(HttpContext c)
         => c.Request.Headers["X-Active-Scope-Mode"].FirstOrDefault()

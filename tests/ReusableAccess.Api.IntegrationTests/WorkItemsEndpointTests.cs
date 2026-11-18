@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
@@ -326,13 +326,13 @@ internal sealed class ApiTestHost : IAsyncDisposable
         builder.Services.AddReusableAccessAuthorization();
         builder.Services.AddApplication();
 
-        builder.Services.AddScoped<IAccessProfilesReadStore, AccessProfilesReadStore>();
-        builder.Services.AddScoped<IAccessProfilePreferenceStore, AccessProfilePreferenceStore>();
-        builder.Services.AddScoped<IRoleReadStore, RoleReadStore>();
+        builder.Services.AddScoped<IAccessProfileQueries, AccessProfileQueries>();
+       ;
+        builder.Services.AddScoped<IRoleQueries, RoleQueries>();
         builder.Services.AddScoped<IRoleRepository, RoleRepository>();
-        builder.Services.AddScoped<IScopeReadStore, ScopeReadStore>();
+        builder.Services.AddScoped<IScopeQueries, ScopeQueries>();
         builder.Services.AddScoped<IScopeRepository, ScopeRepository>();
-        builder.Services.AddScoped<IWorkItemsQueryStore, WorkItemsQueryStore>();
+        builder.Services.AddScoped<IWorkItemsQueries, WorkItemsQueries>();
         var application = builder.Build();
 
         application.UseAuthentication();

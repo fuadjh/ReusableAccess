@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 
 namespace ReusableAccess.Application.Bundles;
 
@@ -13,10 +13,3 @@ public sealed record AdminBundleDetails(
     string ScopeMode,
     Guid[] RoleIds,
     Guid[] ScopeIds);
-
-public interface IUserBundlesQueryStore
-{
-    Task<IReadOnlyList<AdminBundleDetails>?> GetForUserAsync(
-        Guid userId,
-        CancellationToken cancellationToken);
-}

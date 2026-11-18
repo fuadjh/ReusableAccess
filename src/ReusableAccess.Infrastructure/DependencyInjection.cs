@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using ReusableAccess.Application.AccessProfiles;
 using ReusableAccess.Application.Bundles;
 using ReusableAccess.Application.Persistence;
@@ -55,6 +56,12 @@ public static class DependencyInjection
         services.AddScoped<IUserSearchQueries, UserSearchQueries>();
         services.AddScoped<IUserBundleQueries, UserBundleQueries>();
         services.AddAccessFeaturesInfrastructure();
+
+        // اگر ماژول قابلیت‌ها این قرارداد را ثبت نکرده باشد، اینجا ثبت می‌شود.
+        // TryAddScoped در صورت وجود ثبت قبلی، ثبت دیگری اضافه نمی‌کند.
+        
+
         return services;
+       
     }
 }

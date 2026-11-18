@@ -1,7 +1,9 @@
 ﻿using System.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using ReusableAccess.Application.Accounts;
 using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Errors;
 using ReusableAccess.Contracts;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Domain.Enums;
@@ -20,14 +22,14 @@ public sealed class CompletionStore(
     private static void Check(IdentityResult result)
     {
         if (!result.Succeeded)
-            throw new CompletionException(
+            throw new UseCaseException(
                 400, string.Join(" ", result.Errors.Select(x => x.Description)));
     }
 
    
     private async Task<ApplicationUser> User(Guid id, CancellationToken ct)
         => await db.Users.SingleOrDefaultAsync(x => x.Id == id, ct)
-           ?? throw new CompletionException(404, "کاربر پیدا نشد.");
+           ?? throw new UseCaseException(404, "کاربر پیدا نشد.");
 
     public Task<bool> IsCurrentAsync(
         Guid id, int version, CancellationToken ct)
@@ -51,7 +53,7 @@ public sealed class CompletionStore(
             string.IsNullOrEmpty(input.NewPassword) ||
             input.NewPassword.Length > 128)
         {
-            throw new CompletionException(400, "طول گذرواژه معتبر نیست.");
+            throw new UseCaseException(400, "طول گذرواژه معتبر نیست.");
         }
 
         var user = await User(id, ct);
@@ -88,14 +90,14 @@ public sealed class CompletionStore(
     {
         if (!Enum.IsDefined(input.LoginMode) ||
             !Enum.IsDefined(input.RecoveryChannel))
-            throw new CompletionException(400, "روش احراز هویت معتبر نیست.");
+            throw new UseCaseException(400, "روش احراز هویت معتبر نیست.");
 
         if (input.PublicRegistrationEnabled &&
             (!input.RegistrationStartsUtc.HasValue ||
              !input.RegistrationEndsUtc.HasValue ||
              input.RegistrationStartsUtc >= input.RegistrationEndsUtc))
         {
-            throw new CompletionException(
+            throw new UseCaseException(
                 400, "بازهٔ شروع و پایان ثبت‌نام معتبر نیست.");
         }
 
@@ -107,21 +109,21 @@ public sealed class CompletionStore(
                 ? DeliveryChannel.Email : DeliveryChannel.Sms;
 
             if (!sender.IsConfigured(channel))
-                throw new CompletionException(
+                throw new UseCaseException(
                     400, "سرویس ارسال این کانال پیکربندی نشده است.");
 
             if (channel == DeliveryChannel.Email
                     ? !admin.EmailConfirmed
                     : !admin.PhoneNumberConfirmed)
             {
-                throw new CompletionException(
+                throw new UseCaseException(
                     400, "ابتدا کانال حساب ادمین را در بخش امنیت حساب تأیید کنید.");
             }
         }
 
         if (input.RecoveryEnabled &&
             !sender.IsConfigured(input.RecoveryChannel))
-            throw new CompletionException(
+            throw new UseCaseException(
                 400, "سرویس بازیابی پیکربندی نشده است.");
 
         await using var tx = await db.Database
@@ -131,7 +133,7 @@ public sealed class CompletionStore(
             .SingleAsync(x => x.Id == 1, ct);
 
         if (p.Version != input.Version)
-            throw new CompletionException(
+            throw new UseCaseException(
                 409, "تنظیمات هم‌زمان تغییر کرده‌اند؛ دوباره بارگذاری کنید.");
 
         var invalidate = p.LoginMode != input.LoginMode;
@@ -165,12 +167,12 @@ public sealed class CompletionStore(
         if (kind == "role")
         {
             var role = await db.Roles.SingleOrDefaultAsync(x => x.Id == id, ct)
-                ?? throw new CompletionException(404, "نقش پیدا نشد.");
+                ?? throw new UseCaseException(404, "نقش پیدا نشد.");
 
             if (await db.Set<UserRoleAssignment>().AnyAsync(x => x.RoleId == id, ct) ||
                 await db.Set<UserAccessBundleRole>().AnyAsync(x => x.RoleId == id, ct))
             {
-                throw new CompletionException(
+                throw new UseCaseException(
                     409, "نقش دارای تخصیص است و قابل حذف نیست.");
             }
 
@@ -182,7 +184,7 @@ public sealed class CompletionStore(
        
         else
         {
-            throw new CompletionException(400, "نوع موجودیت معتبر نیست.");
+            throw new UseCaseException(400, "نوع موجودیت معتبر نیست.");
         }
 
         await db.SaveChangesAsync(ct);
@@ -238,11 +240,11 @@ public sealed class CompletionStore(
         await User(userId, ct);
 
         var role = await db.Roles.SingleOrDefaultAsync(x => x.Id == roleId, ct)
-            ?? throw new CompletionException(404, "نقش پیدا نشد.");
+            ?? throw new UseCaseException(404, "نقش پیدا نشد.");
 
         var scope = await db.Set<AccessScope>()
             .SingleOrDefaultAsync(x => x.Id == scopeId, ct)
-            ?? throw new CompletionException(404, "محدوده پیدا نشد.");
+            ?? throw new UseCaseException(404, "محدوده پیدا نشد.");
 
         // موتور فعلی بعد از وجود Bundle، legacy pairها را نادیده می‌گیرد.
         // قبل از ساخت اولین Bundle، pairهای فعال را منتقل می‌کنیم.
@@ -298,12 +300,12 @@ public sealed class CompletionStore(
 
         if (!string.IsNullOrWhiteSpace(mode) &&
             !string.Equals(mode, "selected", StringComparison.OrdinalIgnoreCase))
-            throw new CompletionException(400, "حالت محدوده معتبر نیست.");
+            throw new UseCaseException(400, "حالت محدوده معتبر نیست.");
 
         return await db.Set<AccessScope>()
             .Where(x => x.Code == code)
             .Select(x => (Guid?)x.Id).SingleOrDefaultAsync(ct)
-            ?? throw new CompletionException(404, "محدوده پیدا نشد.");
+            ?? throw new UseCaseException(404, "محدوده پیدا نشد.");
     }
 
     public async Task<Guid> WriteWorkItemAsync(
@@ -315,7 +317,7 @@ public sealed class CompletionStore(
         if (string.IsNullOrWhiteSpace(input.Title) ||
             input.Title.Trim().Length > 200 ||
             input.Status is not ("Open" or "Closed"))
-            throw new CompletionException(400, "عنوان یا وضعیت معتبر نیست.");
+            throw new UseCaseException(400, "عنوان یا وضعیت معتبر نیست.");
 
         WorkItem entity;
 
@@ -324,10 +326,10 @@ public sealed class CompletionStore(
             entity = await db.Set<WorkItem>().SingleOrDefaultAsync(
                 x => x.Id == id &&
                      (!allowed.HasValue || x.ScopeId == allowed.Value), ct)
-                ?? throw new CompletionException(404, "مورد کاری پیدا نشد.");
+                ?? throw new UseCaseException(404, "مورد کاری پیدا نشد.");
 
             if (input.ScopeId != Guid.Empty && input.ScopeId != entity.ScopeId)
-                throw new CompletionException(
+                throw new UseCaseException(
                     400, "انتقال مورد کاری بین محدوده‌ها مجاز نیست.");
 
             entity.Update(input.Title, input.Status);
@@ -339,10 +341,10 @@ public sealed class CompletionStore(
             if (allowed.HasValue &&
                 input.ScopeId != Guid.Empty &&
                 input.ScopeId != allowed.Value)
-                throw new CompletionException(403, "محدوده خارج از پروفایل فعال است.");
+                throw new UseCaseException(403, "محدوده خارج از پروفایل فعال است.");
 
             if (!await db.Set<AccessScope>().AnyAsync(x => x.Id == target, ct))
-                throw new CompletionException(400, "محدودهٔ مقصد معتبر نیست.");
+                throw new UseCaseException(400, "محدودهٔ مقصد معتبر نیست.");
 
             entity = new WorkItem(target, input.Title, input.Status);
             db.Add(entity);
@@ -360,7 +362,7 @@ public sealed class CompletionStore(
         var entity = await db.Set<WorkItem>().SingleOrDefaultAsync(
             x => x.Id == id &&
                  (!allowed.HasValue || x.ScopeId == allowed.Value), ct)
-            ?? throw new CompletionException(404, "مورد کاری پیدا نشد.");
+            ?? throw new UseCaseException(404, "مورد کاری پیدا نشد.");
 
         db.Remove(entity);
         await db.SaveChangesAsync(ct);

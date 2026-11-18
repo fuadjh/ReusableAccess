@@ -16,6 +16,8 @@ using ReusableAccess.Domain.Identity;
 using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.Persistence;
 using ReusableAccess.Application.Users;
+using ReusableAccess.Application.Errors;
+using ReusableAccess.Application.Accounts;
 
 namespace ReusableAccess.Infrastructure.Completion;
 
@@ -44,7 +46,7 @@ public sealed class AccountWorkflow(
     private static void Check(IdentityResult result)
     {
         if (!result.Succeeded)
-            throw new CompletionException(
+            throw new UseCaseException(
                 400, string.Join(" ", result.Errors.Select(x => x.Description)));
     }
 
@@ -130,7 +132,7 @@ public sealed class AccountWorkflow(
                      x.Purpose == purpose &&
                      x.CreatedUtc > now.AddMinutes(-1), ct))
         {
-            throw new CompletionException(
+            throw new UseCaseException(
                 429, "برای ارسال مجدد یک دقیقه صبر کنید.");
         }
 
@@ -161,7 +163,7 @@ public sealed class AccountWorkflow(
                 ? user.Email : user.PhoneNumber;
 
             if (string.IsNullOrWhiteSpace(destination))
-                throw new CompletionException(
+                throw new UseCaseException(
                     400, "اطلاعات کانال حساب کامل نیست.");
 
             try
@@ -169,7 +171,7 @@ public sealed class AccountWorkflow(
                 if (deferred)
                 {
                     if (!recoveryQueue.TryEnqueue(channel, destination, code))
-                        throw new CompletionException(503, "صف ارسال پر است.");
+                        throw new UseCaseException(503, "صف ارسال پر است.");
                 }
                 else
                 {
@@ -189,7 +191,7 @@ public sealed class AccountWorkflow(
                 logger.LogWarning(
                     "Account delivery failed for channel {Channel}.", channel);
 
-                throw new CompletionException(
+                throw new UseCaseException(
                     503, "ارسال کد انجام نشد؛ بعداً تلاش کنید.");
             }
         }
@@ -216,7 +218,7 @@ public sealed class AccountWorkflow(
             c.ExpiresUtc <= time.GetUtcNow() ||
             (expectedUser.HasValue && c.UserId != expectedUser))
         {
-            throw new CompletionException(400, Invalid);
+            throw new UseCaseException(400, Invalid);
         }
 
         var user = await db.Users
@@ -224,10 +226,10 @@ public sealed class AccountWorkflow(
 
         if (user is null || !user.IsActive ||
             user.SessionVersion != c.UserSessionVersion)
-            throw new CompletionException(400, Invalid);
+            throw new UseCaseException(400, Invalid);
 
         if (purpose == "login" && await users.IsLockedOutAsync(user))
-            throw new CompletionException(400, Invalid);
+            throw new UseCaseException(400, Invalid);
 
         // در password-change، خود شناسهٔ تصادفی چالش پس از اثبات رمز صادر شده است.
         var valid = purpose == "password-change";
@@ -261,7 +263,7 @@ public sealed class AccountWorkflow(
                 Check(await users.AccessFailedAsync(user));
 
             await tx.CommitAsync(ct);
-            throw new CompletionException(400, Invalid);
+            throw new UseCaseException(400, Invalid);
         }
 
         if (effect is not null)
@@ -289,7 +291,7 @@ public sealed class AccountWorkflow(
 
                 if (policy.LoginMode == LoginMode.Password ||
                     challenge.Channel != expected)
-                    throw new CompletionException(400, Invalid);
+                    throw new UseCaseException(400, Invalid);
 
                 if (challenge.Channel == DeliveryChannel.Email)
                     user.EmailConfirmed = true;
@@ -308,7 +310,7 @@ public sealed class AccountWorkflow(
         Guid id, string password, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(password) || password.Length > 128)
-            throw new CompletionException(400, "طول گذرواژه معتبر نیست.");
+            throw new UseCaseException(400, "طول گذرواژه معتبر نیست.");
 
         var result = await Consume(
             id, "password-change", null, null,
@@ -328,16 +330,16 @@ public sealed class AccountWorkflow(
     public async Task RegisterAsync(CreateUserInput input, CancellationToken ct)
     {
         if (!(await Policy(ct)).IsRegistrationOpen(time.GetUtcNow()))
-            throw new CompletionException(
+            throw new UseCaseException(
                 403, "ثبت‌نام عمومی در این زمان فعال نیست.");
 
         try
         {
             await registrations.RegisterAsync(input, ct);
         }
-        catch (CompletionException e) when (e.StatusCode == 409)
+        catch (UseCaseException e) when (e.StatusCode == 409)
         {
-            throw new CompletionException(
+            throw new UseCaseException(
                 400, "ثبت‌نام انجام نشد؛ اطلاعات را بررسی کنید.");
         }
     }
@@ -348,7 +350,7 @@ public sealed class AccountWorkflow(
         var policy = await Policy(ct);
 
         if (!policy.RecoveryEnabled)
-            throw new CompletionException(403, "بازیابی گذرواژه غیرفعال است.");
+            throw new UseCaseException(403, "بازیابی گذرواژه غیرفعال است.");
 
         var national = IdentityRules.NormalizeDigits(nationalId);
         var user = await db.Users.SingleOrDefaultAsync(
@@ -366,7 +368,7 @@ public sealed class AccountWorkflow(
                 user, "recovery", policy.RecoveryChannel,
                 false, true, ct, deferred: true);
         }
-        catch (CompletionException)
+        catch (UseCaseException)
         {
             return Guid.NewGuid();
         }
@@ -376,19 +378,19 @@ public sealed class AccountWorkflow(
         Guid id, string code, string password, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(password) || password.Length > 128)
-            throw new CompletionException(400, "طول گذرواژه معتبر نیست.");
+            throw new UseCaseException(400, "طول گذرواژه معتبر نیست.");
 
         var policy = await Policy(ct);
 
         if (!policy.RecoveryEnabled)
-            throw new CompletionException(403, "بازیابی گذرواژه غیرفعال است.");
+            throw new UseCaseException(403, "بازیابی گذرواژه غیرفعال است.");
 
         await Consume(
             id, "recovery", code, null,
             async (user, challenge) =>
             {
                 if (challenge.Channel != policy.RecoveryChannel)
-                    throw new CompletionException(400, Invalid);
+                    throw new UseCaseException(400, Invalid);
 
                 user.SessionVersion++;
                 user.MustChangePassword = false;
@@ -404,11 +406,11 @@ public sealed class AccountWorkflow(
         Guid userId, DeliveryChannel channel, CancellationToken ct)
     {
         if (!Enum.IsDefined(channel))
-            throw new CompletionException(400, "کانال معتبر نیست.");
+            throw new UseCaseException(400, "کانال معتبر نیست.");
 
         var user = await db.Users.SingleOrDefaultAsync(
             x => x.Id == userId && x.IsActive, ct)
-            ?? throw new CompletionException(404, "حساب پیدا نشد.");
+            ?? throw new UseCaseException(404, "حساب پیدا نشد.");
 
         return await Issue(
             user, "contact", channel, false, true, ct);

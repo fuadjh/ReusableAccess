@@ -2,6 +2,7 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Errors;
 
 namespace ReusableAccess.Infrastructure.Users;
 
@@ -16,18 +17,18 @@ internal static class UserWriteConflict
 
         if (errors.Any(error => error.Code == "ConcurrencyFailure"))
         {
-            throw new CompletionException(
+            throw new UseCaseException(
                 409, "اطلاعات هم‌زمان تغییر کرده است؛ دوباره دریافت کنید.");
         }
 
         if (errors.Any(error =>
                 error.Code is "DuplicateUserName" or "DuplicateEmail"))
         {
-            throw new CompletionException(
+            throw new UseCaseException(
                 409, "کد ملی یا ایمیل قبلاً ثبت شده است.");
         }
 
-        throw new CompletionException(
+        throw new UseCaseException(
             400,
             string.Join(" ", errors.Select(error => error.Description)));
     }
@@ -40,18 +41,18 @@ internal static class UserWriteConflict
         }
         catch (DbUpdateConcurrencyException)
         {
-            throw new CompletionException(
+            throw new UseCaseException(
                 409, "اطلاعات هم‌زمان تغییر کرده است؛ دوباره دریافت کنید.");
         }
         catch (Exception error) when (HasSqlError(error, 2601, 2627))
         {
-            throw new CompletionException(
+            throw new UseCaseException(
                 409, "اطلاعات تکراری است؛ فهرست را تازه‌سازی کنید.");
         }
         catch (Exception error) when (HasSqlError(error, 1205))
         {
             // retry خودکار write انجام نمی‌دهیم؛ تراکنش قربانی deadlock برگشت خورده است.
-            throw new CompletionException(
+            throw new UseCaseException(
                 409, "عملیات هم‌زمان دیگری انجام شد؛ اطلاعات را دوباره دریافت کنید.");
         }
     }

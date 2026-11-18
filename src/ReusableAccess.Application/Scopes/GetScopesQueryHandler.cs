@@ -1,8 +1,8 @@
-﻿using MediatR;
+using MediatR;
 
 namespace ReusableAccess.Application.Scopes;
 
-public sealed class GetScopesQueryHandler(IScopeReadStore readStore)
+public sealed class GetScopesQueryHandler(IScopeQueries readStore)
     : IRequestHandler<GetScopesQuery, IReadOnlyList<ScopeListItem>>
 {
     public Task<IReadOnlyList<ScopeListItem>> Handle(

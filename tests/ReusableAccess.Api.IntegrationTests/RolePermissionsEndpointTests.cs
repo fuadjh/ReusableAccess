@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
@@ -240,8 +240,8 @@ internal sealed class RolePermissionsTestHost : IAsyncDisposable
         builder.Services.AddApplication();
 
         builder.Services.AddScoped<
-            IRolePermissionsQueryStore,
-            RolePermissionsQueryStore>();
+            IRolePermissionsQueries,
+            RolePermissionsQueries>();
 
         builder.Services.AddScoped<IRolePermissionsRepository, RolePermissionsRepository>();
 

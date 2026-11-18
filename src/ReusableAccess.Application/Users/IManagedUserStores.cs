@@ -1,19 +1,6 @@
-﻿using ReusableAccess.Contracts;
+using ReusableAccess.Contracts;
 
 namespace ReusableAccess.Application.Users;
-
-// Queryها فقط قرارداد خواندن را می‌بینند.
-public interface IManagedUserReadStore
-{
-    Task<PageResult<UserRow>> SearchUsersAsync(
-        string? query,
-        int page,
-        CancellationToken cancellationToken);
-
-    Task<UserRow> CurrentUserAsync(
-        Guid userId,
-        CancellationToken cancellationToken);
-}
 
 // عملیات مدیریتی، بدون دسترسی به تنظیمات ورود، Audit یا WorkItem.
 public interface IManagedUserCommandStore

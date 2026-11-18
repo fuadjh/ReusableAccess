@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using ReusableAccess.Application.Completion;
 using ReusableAccess.Application.Users;
@@ -29,7 +29,7 @@ public sealed class UserSliceBoundaryTests
         {
             var constructor = Assert.Single(handler.GetConstructors());
             var parameter = Assert.Single(constructor.GetParameters());
-            Assert.Equal(typeof(IManagedUserReadStore), parameter.ParameterType);
+            Assert.Equal(typeof(IManagedUserQueries), parameter.ParameterType);
         }
 
         foreach (var handler in writeHandlers)

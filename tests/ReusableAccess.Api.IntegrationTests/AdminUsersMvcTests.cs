@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ReusableAccess.Api.Controllers;
 using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Errors;
 using ReusableAccess.Contracts;
 using ReusableAccess.Infrastructure.Identity;
 using ReusableAccess.Infrastructure.Persistence;
@@ -234,6 +235,29 @@ public sealed class AdminUsersMvcTests
         await AssertProblemAsync(response, HttpStatusCode.NotFound);
     }
 
+
+    [Fact]
+    public async Task Work_item_command_handlers_can_be_resolved()
+    {
+        await using var host = await UserManagementTestHost.CreateAsync();
+
+        await using var scope = host.App.Services.CreateAsyncScope();
+
+        // فقط ساخت زنجیرهٔ وابستگی‌ها بررسی می‌شود؛ Handle اجرا نمی‌شود.
+        var saveHandler = scope.ServiceProvider.GetRequiredService<
+            MediatR.IRequestHandler<
+                ReusableAccess.Application.WorkItems.SaveWorkItemCommand,
+                Guid>>();
+
+        var deleteHandler = scope.ServiceProvider.GetRequiredService<
+            MediatR.IRequestHandler<
+                ReusableAccess.Application.WorkItems.DeleteWorkItemCommand,
+                bool>>();
+
+        Assert.NotNull(saveHandler);
+        Assert.NotNull(deleteHandler);
+    }
+
     [Fact]
     public async Task Client_supplied_actor_id_cannot_bypass_self_protection()
     {
@@ -385,7 +409,7 @@ public sealed class AdminUsersMvcTests
         await host.InScopeAsync(async services =>
         {
             var sender = services.GetRequiredService<ISender>();
-            var createError = await Assert.ThrowsAsync<CompletionException>(() =>
+            var createError = await Assert.ThrowsAsync<UseCaseException>(() =>
                 sender.Send(new CreateManagedUser(host.AdminId, input)));
             Assert.Equal(400, createError.StatusCode);
 
@@ -400,7 +424,7 @@ public sealed class AdminUsersMvcTests
                     Email = input.Email,
                     Mobile = input.Mobile
                 };
-                var updateError = await Assert.ThrowsAsync<CompletionException>(() =>
+                var updateError = await Assert.ThrowsAsync<UseCaseException>(() =>
                     sender.Send(new UpdateManagedUser(host.AdminId, host.ReaderId, update)));
                 Assert.Equal(400, updateError.StatusCode);
             }
@@ -467,11 +491,32 @@ public sealed class AdminUsersMvcTests
         return await DataAsync<UserRow>(response);
     }
 
-    private static async Task<T> DataAsync<T>(HttpResponseMessage response)
+    private static async Task<T> DataAsync<T>(
+    HttpResponseMessage response)
     {
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var result = await response.Content.ReadFromJsonAsync<DataEnvelope<T>>();
+        // متن پاسخ را فقط هنگام شکست به پیام تست اضافه می‌کنیم.
+        // انتظار تست همچنان دقیقاً HTTP 200 باقی می‌ماند.
+        if (response.StatusCode != HttpStatusCode.OK)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+
+            Assert.True(
+                response.StatusCode == HttpStatusCode.OK,
+                $"""
+            Expected HTTP 200 OK.
+            Actual: {(int)response.StatusCode} {response.StatusCode}
+            Request: {response.RequestMessage?.Method} {response.RequestMessage?.RequestUri?.AbsolutePath}
+            Content-Type: {response.Content.Headers.ContentType}
+            Response:
+            {body}
+            """);
+        }
+
+        var result = await response.Content
+            .ReadFromJsonAsync<DataEnvelope<T>>();
+
         Assert.NotNull(result);
+
         return result.Data;
     }
 

@@ -1,5 +1,5 @@
 ﻿using MediatR;
-using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Errors;
 using ReusableAccess.Contracts;
 
 namespace ReusableAccess.Application.Users;
@@ -30,7 +30,7 @@ public sealed class CreateManagedUserHandler(IManagedUserCommandStore store)
         CreateManagedUser request,
         CancellationToken cancellationToken)
     {
-        CompletionValidation.Profile(request.Input);
+        UserProfileValidation.Profile(request.Input);
 
         return store.CreateManagedAsync(
             request.Input,
@@ -45,7 +45,7 @@ public sealed class UpdateManagedUserHandler(IManagedUserCommandStore store)
         UpdateManagedUser request,
         CancellationToken cancellationToken)
     {
-        CompletionValidation.Profile(request.Input);
+        UserProfileValidation.Profile(request.Input);
 
         return store.UpdateUserAsync(
             request.ActorId,
@@ -78,7 +78,7 @@ public sealed class ResetManagedPasswordHandler(IManagedUserCommandStore store)
         if (string.IsNullOrWhiteSpace(request.Password) ||
             request.Password.Length is < 12 or > 128)
         {
-            throw new CompletionException(
+            throw new UseCaseException(
                 400, "گذرواژه باید بین ۱۲ تا ۱۲۸ کاراکتر باشد.");
         }
 

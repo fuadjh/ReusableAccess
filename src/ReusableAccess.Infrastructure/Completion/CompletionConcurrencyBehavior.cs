@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Errors;
 
 namespace ReusableAccess.Infrastructure.Completion;
 
@@ -18,14 +19,20 @@ public sealed class CompletionConcurrencyBehavior<TRequest, TResponse>
             return await next();
         }
         catch (DbUpdateConcurrencyException)
-              when (
+            when (
+                request is IConcurrencyConflictRequest ||
+
                 typeof(TRequest).Namespace ==
                     typeof(CompletionHandlers).Namespace ||
+
                 typeof(TRequest).Namespace ==
-                    typeof(ReusableAccess.Application.Users.SearchUsers).Namespace)
+                    typeof(
+                        ReusableAccess.Application.Users.SearchUsers
+                    ).Namespace)
         {
-            throw new CompletionException(
-                409, "اطلاعات هم‌زمان تغییر کرده؛ دوباره دریافت کنید.");
+            throw new UseCaseException(
+                409,
+                "اطلاعات هم‌زمان تغییر کرده؛ دوباره دریافت کنید.");
         }
     }
 }

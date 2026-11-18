@@ -1,11 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Application.Users;
 using ReusableAccess.Infrastructure.Persistence;
 
 namespace ReusableAccess.Infrastructure.Users;
 
-public sealed class UserSearchStore(
-    ApplicationDbContext dbContext) : IUserSearchStore
+public sealed class UserSearchQueries(
+    ApplicationDbContext dbContext) : IUserSearchQueries
 {
     public async Task<IReadOnlyList<AdminUserSearchResult>> SearchAsync(
         string search,

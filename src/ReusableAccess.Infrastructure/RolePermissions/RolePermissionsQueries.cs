@@ -1,12 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Application.RolePermissions;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Infrastructure.Persistence;
 
 namespace ReusableAccess.Infrastructure.RolePermissions;
 
-public sealed class RolePermissionsQueryStore(
-    ApplicationDbContext dbContext) : IRolePermissionsQueryStore
+public sealed class RolePermissionsQueries(
+    ApplicationDbContext dbContext) : IRolePermissionsQueries
 {
     public async Task<RolePermissionsReadModel?> GetAsync(
         Guid roleId,

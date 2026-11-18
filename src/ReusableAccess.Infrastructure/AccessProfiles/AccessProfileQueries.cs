@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Application.AccessProfiles;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Domain.Enums;
@@ -6,8 +6,8 @@ using ReusableAccess.Infrastructure.Persistence;
 
 namespace ReusableAccess.Infrastructure.AccessProfiles;
 
-public sealed class AccessProfilesReadStore(
-    ApplicationDbContext dbContext) : IAccessProfilesReadStore
+public sealed class AccessProfileQueries(
+    ApplicationDbContext dbContext) : IAccessProfileQueries
 {
     public async Task<AccessProfilesSnapshot?> GetAsync(
         Guid userId,

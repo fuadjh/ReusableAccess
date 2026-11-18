@@ -1,9 +1,13 @@
-﻿using MediatR;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using MediatR;
 
 namespace ReusableAccess.Application.RolePermissions;
 
 public sealed class GetRolePermissionsQueryHandler(
-    IRolePermissionsQueryStore store)
+    IRolePermissionsQueries queries)
     : IRequestHandler<
         GetRolePermissionsQuery,
         IReadOnlyList<RolePermissionOption>?>
@@ -12,11 +16,12 @@ public sealed class GetRolePermissionsQueryHandler(
         GetRolePermissionsQuery request,
         CancellationToken cancellationToken)
     {
-        var result = await store.GetAsync(
+        var result = await queries.GetAsync(
             request.RoleId,
             request.Search,
             cancellationToken);
 
+        // رفتار قبلی برای Role ناموجود حفظ می‌شود.
         if (result is null)
         {
             return null;
@@ -26,6 +31,7 @@ public sealed class GetRolePermissionsQueryHandler(
             .Select(permission =>
             {
                 var separator = permission.Key.IndexOf('.');
+
                 var category = separator > 0
                     ? permission.Key[..separator]
                     : "general";

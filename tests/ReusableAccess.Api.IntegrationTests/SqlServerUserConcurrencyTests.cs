@@ -1,10 +1,11 @@
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ReusableAccess.Application;
 using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Errors;
 using ReusableAccess.Application.Users;
 using ReusableAccess.Contracts;
 using ReusableAccess.Infrastructure;
@@ -175,7 +176,7 @@ public sealed class SqlServerUserConcurrencyTests
                 .AddDefaultTokenProviders();
 
             services.AddApplication();
-            services.AddCompletionInfrastructure();
+            services.AddAccessFeaturesInfrastructure();
 
             var database = new TestDatabase(services.BuildServiceProvider());
 
@@ -212,7 +213,7 @@ public sealed class SqlServerUserConcurrencyTests
 
         public Task<UserRow> Read(Guid id)
             => InScope(provider =>
-                provider.GetRequiredService<IManagedUserReadStore>()
+                provider.GetRequiredService<IManagedUserQueries>()
                     .CurrentUserAsync(id, CancellationToken.None));
 
         public async Task<int[]> Race(
@@ -232,7 +233,7 @@ public sealed class SqlServerUserConcurrencyTests
                         await command(provider.GetRequiredService<ISender>());
                         return 200;
                     }
-                    catch (CompletionException error)
+                    catch (UseCaseException error)
                     {
                         return error.StatusCode;
                     }

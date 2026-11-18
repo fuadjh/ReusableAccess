@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using ReusableAccess.Application.Accounts;
 using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Errors;
 using ReusableAccess.Application.Users;
 using ReusableAccess.Contracts;
 using ReusableAccess.Domain.Entities;
@@ -22,7 +24,7 @@ public sealed class CompletionWorkflowTests
         await using var f = await Fixture.Create();
 
         // ثبت‌نام عمومی از قرارداد مستقل خودش استفاده می‌کند.
-        var e = await Assert.ThrowsAsync<CompletionException>(() =>
+        var e = await Assert.ThrowsAsync<UseCaseException>(() =>
             f.Registrations.RegisterAsync(f.Input(1), default));
 
         Assert.Equal(403, e.StatusCode);
@@ -34,7 +36,7 @@ public sealed class CompletionWorkflowTests
         await using var f = await Fixture.Create();
         var admin = await f.User(1, true);
 
-        var self = await Assert.ThrowsAsync<CompletionException>(() =>
+        var self = await Assert.ThrowsAsync<UseCaseException>(() =>
             f.UserCommandStore.SetActiveAsync(
                 admin.Id,
                 admin.Id,
@@ -43,7 +45,7 @@ public sealed class CompletionWorkflowTests
 
         Assert.Equal(409, self.StatusCode);
 
-        var last = await Assert.ThrowsAsync<CompletionException>(() =>
+        var last = await Assert.ThrowsAsync<UseCaseException>(() =>
             f.UserCommandStore.SetActiveAsync(
                 Guid.NewGuid(),
                 admin.Id,
@@ -85,7 +87,7 @@ public sealed class CompletionWorkflowTests
         await f.Db.SaveChangesAsync();
 
         // WorkItem هنوز در محدودهٔ Completion باقی مانده است.
-        var error = await Assert.ThrowsAsync<CompletionException>(() =>
+        var error = await Assert.ThrowsAsync<UseCaseException>(() =>
             f.Store.WriteWorkItemAsync(
                 item.Id,
                 "selected",
@@ -106,7 +108,7 @@ public sealed class CompletionWorkflowTests
 
         view.Policy.LoginMode = LoginMode.PasswordAndEmail;
 
-        var error = await Assert.ThrowsAsync<CompletionException>(() =>
+        var error = await Assert.ThrowsAsync<UseCaseException>(() =>
             f.Store.SaveSettingsAsync(
                 admin.Id,
                 view.Policy,
@@ -141,7 +143,7 @@ public sealed class CompletionWorkflowTests
 
         Assert.True(current.EmailConfirmed);
 
-        await Assert.ThrowsAsync<CompletionException>(() =>
+        await Assert.ThrowsAsync<UseCaseException>(() =>
             f.Workflow.ConfirmContactAsync(
                 user.Id,
                 id,
@@ -162,7 +164,7 @@ public sealed class CompletionWorkflowTests
 
         f.Clock.Now = f.Clock.Now.AddMinutes(5);
 
-        await Assert.ThrowsAsync<CompletionException>(() =>
+        await Assert.ThrowsAsync<UseCaseException>(() =>
             f.Workflow.ConfirmContactAsync(
                 user.Id,
                 id,
@@ -185,7 +187,7 @@ public sealed class CompletionWorkflowTests
 
         for (var i = 0; i < 5; i++)
         {
-            await Assert.ThrowsAsync<CompletionException>(() =>
+            await Assert.ThrowsAsync<UseCaseException>(() =>
                 f.Workflow.ConfirmContactAsync(
                     user.Id,
                     id,
@@ -193,7 +195,7 @@ public sealed class CompletionWorkflowTests
                     default));
         }
 
-        await Assert.ThrowsAsync<CompletionException>(() =>
+        await Assert.ThrowsAsync<UseCaseException>(() =>
             f.Workflow.ConfirmContactAsync(
                 user.Id,
                 id,
@@ -206,7 +208,7 @@ public sealed class CompletionWorkflowTests
     {
         await using var f = await Fixture.Create();
 
-        var e = await Assert.ThrowsAsync<CompletionException>(() =>
+        var e = await Assert.ThrowsAsync<UseCaseException>(() =>
             f.Workflow.RequestRecoveryAsync(
                 f.Input(1).NationalId,
                 default));
@@ -342,9 +344,9 @@ public sealed class CompletionWorkflowTests
                 .GetRequiredService<ICompletionStore>();
 
         // قرارداد مستقل خواندن کاربران.
-        public IManagedUserReadStore UserReadStore =>
+        public IManagedUserQueries UserReadStore =>
             _scope.ServiceProvider
-                .GetRequiredService<IManagedUserReadStore>();
+                .GetRequiredService<IManagedUserQueries>();
 
         // قرارداد مستقل عملیات مدیریتی کاربران.
         public IManagedUserCommandStore UserCommandStore =>
@@ -408,7 +410,7 @@ public sealed class CompletionWorkflowTests
                 .AddDefaultTokenProviders();
 
             // شامل ثبت Storeهای جدید کاربران، مطابق گام دوم.
-            services.AddCompletionInfrastructure();
+            services.AddAccessFeaturesInfrastructure();
 
             // Sender جعلی فقط در همین ServiceProvider تست جایگزین می‌شود.
             services.AddSingleton<IAccountMessageSender>(sender);

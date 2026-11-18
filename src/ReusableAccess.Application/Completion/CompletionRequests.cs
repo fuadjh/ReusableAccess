@@ -1,46 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Text.RegularExpressions;
-using MediatR;
+﻿using MediatR;
 using ReusableAccess.Contracts;
-using ReusableAccess.Domain.Identity;
 
 namespace ReusableAccess.Application.Completion;
-
-public sealed class CompletionException(
-    int statusCode, string message) : Exception(message)
-{
-    public int StatusCode { get; } = statusCode;
-}
-
-public static class CompletionValidation
-{
-    public static void Profile(UserProfileInput input)
-    {
-        var errors = new List<ValidationResult>();
-
-        if (!Validator.TryValidateObject(
-                input, new ValidationContext(input), errors, true))
-        {
-            throw new CompletionException(
-                400, string.Join(" ", errors.Select(x => x.ErrorMessage)));
-        }
-
-        if ($"{input.FirstName.Trim()} {input.LastName.Trim()}".Length > 200)
-            throw new CompletionException(400, "مجموع نام و نام خانوادگی بیش از حد مجاز است.");
-
-        var mobile = IdentityRules.NormalizeMobile(input.Mobile);
-
-        if (!Regex.IsMatch(mobile, @"^\+[1-9][0-9]{7,14}$"))
-            throw new CompletionException(400, "شماره موبایل معتبر نیست.");
-
-        if (string.IsNullOrWhiteSpace(input.FirstName) ||
-            string.IsNullOrWhiteSpace(input.LastName) ||
-            string.IsNullOrWhiteSpace(input.OrganizationalCode))
-        {
-            throw new CompletionException(400, "همهٔ مشخصات الزامی‌اند.");
-        }
-    }
-}
 
 
 
@@ -90,7 +51,7 @@ public sealed record ReadReport(
 
 public interface ICompletionStore
 {
-    
+
 
 
     Task<bool> ChangePasswordAsync(
@@ -129,12 +90,12 @@ public interface ICompletionStore
 
 // Requestها مستقل‌اند؛ صرفاً handlerهای مرتبط را در یک کلاس جمع کرده‌ایم.
 public sealed class CompletionHandlers(ICompletionStore store) :
-    
+
     IRequestHandler<GetAuthSettings, SettingsView>,
     IRequestHandler<SaveAuthSettings, bool>,
     IRequestHandler<DeleteAccessEntity, bool>,
     IRequestHandler<ReadAudit, PageResult<AuditRow>>,
-  
+
     IRequestHandler<ChangeOwnPassword, bool>,
     IRequestHandler<ReadBundles, IReadOnlyList<BundleRow>>,
     IRequestHandler<SaveSimpleAssignment, Guid>,
@@ -144,7 +105,7 @@ public sealed class CompletionHandlers(ICompletionStore store) :
     IRequestHandler<ReadWritableScopes, IReadOnlyList<ScopeRow>>,
     IRequestHandler<ReadReport, ReportSummary>
 {
-   
+
 
     public Task<SettingsView> Handle(GetAuthSettings r, CancellationToken ct)
         => store.SettingsAsync(ct);
@@ -158,7 +119,7 @@ public sealed class CompletionHandlers(ICompletionStore store) :
     public Task<PageResult<AuditRow>> Handle(ReadAudit r, CancellationToken ct)
         => store.AuditAsync(r.Page, ct);
 
-    
+
 
     public Task<bool> Handle(ChangeOwnPassword r, CancellationToken ct)
         => store.ChangePasswordAsync(r.UserId, r.Input, ct);
@@ -188,52 +149,5 @@ public sealed class CompletionHandlers(ICompletionStore store) :
         => store.ReportAsync(r.ScopeMode, r.ScopeCode, ct);
 }
 
-public interface IAccountSessionValidator
-{
-    Task<bool> IsCurrentAsync(
-        Guid userId, int sessionVersion, CancellationToken ct);
-}
 
-public interface IAccountWorkflow
-{
-    Task<PublicAuthOptions> OptionsAsync(CancellationToken ct);
 
-    Task<LoginOutcome> PasswordAsync(
-        string nationalId, string password, bool remember, CancellationToken ct);
-
-    Task<LoginOutcome> VerifyLoginAsync(
-        Guid challenge, string code, CancellationToken ct);
-
-    Task<LoginOutcome> ChangeRequiredPasswordAsync(
-        Guid challenge, string password, CancellationToken ct);
-
-    Task RegisterAsync(CreateUserInput input, CancellationToken ct);
-
-    Task<Guid> RequestRecoveryAsync(string nationalId, CancellationToken ct);
-
-    Task ResetRecoveredPasswordAsync(
-        Guid challenge, string code, string password, CancellationToken ct);
-
-    Task<Guid> RequestContactAsync(
-        Guid userId, DeliveryChannel channel, CancellationToken ct);
-
-    Task ConfirmContactAsync(
-        Guid userId, Guid challenge, string code, CancellationToken ct);
-
-    Task SignOutAsync();
-}
-
-public interface IAccountMessageSender
-{
-    bool IsConfigured(DeliveryChannel channel);
-
-    Task SendAsync(
-        DeliveryChannel channel, string destination,
-        string code, CancellationToken ct);
-}
-
-public interface IRecoveryCodeQueue
-{
-    bool TryEnqueue(
-        DeliveryChannel channel, string destination, string code);
-}

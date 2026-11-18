@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http.HttpResults;
 using OpenIddict.Server.AspNetCore;
 using ReusableAccess.Api.Components.Identity;
+using ReusableAccess.Application.Accounts;
 using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Errors;
 using ReusableAccess.Contracts;
 
 namespace ReusableAccess.Api.Completion;
@@ -64,7 +66,7 @@ public static class AccountFormEndpoints
             {
                 return await next(context);
             }
-            catch (CompletionException)
+            catch (UseCaseException)
             {
                 var form = await context.HttpContext.Request.ReadFormAsync();
 
@@ -118,7 +120,7 @@ public static class AccountFormEndpoints
                 var f = await c.Request.ReadFormAsync(ct);
 
                 if (f["password"].ToString() != f["confirm"].ToString())
-                    throw new CompletionException(400, "تکرار گذرواژه یکسان نیست.");
+                    throw new UseCaseException(400, "تکرار گذرواژه یکسان نیست.");
 
                 var id = Guid.TryParse(f["id"].ToString(), out var parsed)
                     ? parsed : Guid.Empty;
@@ -135,7 +137,7 @@ public static class AccountFormEndpoints
                 var f = await c.Request.ReadFormAsync(ct);
 
                 if (f["password"].ToString() != f["confirm"].ToString())
-                    throw new CompletionException(400, "تکرار گذرواژه یکسان نیست.");
+                    throw new UseCaseException(400, "تکرار گذرواژه یکسان نیست.");
 
                 await w.RegisterAsync(new CreateUserInput
                 {
@@ -172,7 +174,7 @@ public static class AccountFormEndpoints
                 var f = await c.Request.ReadFormAsync(ct);
 
                 if (f["password"].ToString() != f["confirm"].ToString())
-                    throw new CompletionException(400, "تکرار گذرواژه یکسان نیست.");
+                    throw new UseCaseException(400, "تکرار گذرواژه یکسان نیست.");
 
                 var id = Guid.TryParse(f["id"].ToString(), out var parsed)
                     ? parsed : Guid.Empty;

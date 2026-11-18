@@ -6,7 +6,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using ReusableAccess.Application.Accounts;
 using ReusableAccess.Application.Completion;
+using ReusableAccess.Application.Errors;
 using ReusableAccess.Domain.Identity;
 
 namespace ReusableAccess.Infrastructure.Completion;
@@ -37,7 +39,7 @@ public sealed class AccountMessageSender(
         CancellationToken ct)
     {
         if (!IsConfigured(channel))
-            throw new CompletionException(503, "سرویس ارسال پیکربندی نشده است.");
+            throw new UseCaseException(503, "سرویس ارسال پیکربندی نشده است.");
 
         var text = $"کد تأیید شما: {code}\nاعتبار: ۵ دقیقه. کد را به دیگران ندهید.";
 

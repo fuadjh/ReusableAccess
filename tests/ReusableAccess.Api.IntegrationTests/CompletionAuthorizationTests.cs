@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
@@ -319,13 +319,13 @@ public sealed class CompletionAuthorizationTests
                         .AdminScopesController).Assembly);
 
             builder.Services.AddScoped<
-                IScopeReadStore,
-                ScopeReadStore>();
+                IScopeQueries,
+                ScopeQueries>();
 
             builder.Services.AddScoped<IScopeRepository, ScopeRepository>();
 
             
-            builder.Services.AddCompletionInfrastructure();
+            builder.Services.AddAccessFeaturesInfrastructure();
             builder.Services.AddProblemDetails();
 
             // همان ثبت‌های احراز هویت و مجوزدهی API واقعی:

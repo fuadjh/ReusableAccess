@@ -1,11 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Application.Roles;
 using ReusableAccess.Infrastructure.Persistence;
 
 namespace ReusableAccess.Infrastructure.Roles;
 
-public sealed class RoleReadStore(
-    ApplicationDbContext dbContext) : IRoleReadStore
+public sealed class RoleQueries(
+    ApplicationDbContext dbContext) : IRoleQueries
 {
     public async Task<IReadOnlyList<RoleListItem>> ListAsync(
         CancellationToken cancellationToken)

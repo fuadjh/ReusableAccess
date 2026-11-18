@@ -1,9 +1,9 @@
-﻿using MediatR;
+using MediatR;
 
 namespace ReusableAccess.Application.Users;
 
 public sealed class SearchUsersQueryHandler(
-    IUserSearchStore store)
+    IUserSearchQueries store)
     : IRequestHandler<SearchUsersQuery, IReadOnlyList<AdminUserSearchResult>>
 {
     public Task<IReadOnlyList<AdminUserSearchResult>> Handle(

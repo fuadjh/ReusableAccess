@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
@@ -164,9 +164,9 @@ internal sealed class RoleAndScopeTestHost : IAsyncDisposable
 
         builder.Services.AddApplication();
 
-        builder.Services.AddScoped<IRoleReadStore, RoleReadStore>();
+        builder.Services.AddScoped<IRoleQueries, RoleQueries>();
         builder.Services.AddScoped<IRoleRepository, RoleRepository>();
-        builder.Services.AddScoped<IScopeReadStore, ScopeReadStore>();
+        builder.Services.AddScoped<IScopeQueries, ScopeQueries>();
         builder.Services.AddScoped<IScopeRepository, ScopeRepository>();
         builder.Services
     .AddControllers()

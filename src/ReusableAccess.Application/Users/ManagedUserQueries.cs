@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using ReusableAccess.Contracts;
 
 namespace ReusableAccess.Application.Users;
@@ -9,7 +9,7 @@ public sealed record SearchUsers(string? Q, int Page = 1)
 public sealed record GetCurrentUser(Guid UserId)
     : IRequest<UserRow>;
 
-public sealed class SearchUsersHandler(IManagedUserReadStore store)
+public sealed class SearchUsersHandler(IManagedUserQueries store)
     : IRequestHandler<SearchUsers, PageResult<UserRow>>
 {
     public Task<PageResult<UserRow>> Handle(
@@ -21,7 +21,7 @@ public sealed class SearchUsersHandler(IManagedUserReadStore store)
             cancellationToken);
 }
 
-public sealed class GetCurrentUserHandler(IManagedUserReadStore store)
+public sealed class GetCurrentUserHandler(IManagedUserQueries store)
     : IRequestHandler<GetCurrentUser, UserRow>
 {
     public Task<UserRow> Handle(

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using ReusableAccess.Application.Bundles;
 using ReusableAccess.Domain.Entities;
 using ReusableAccess.Domain.Enums;
@@ -6,8 +6,8 @@ using ReusableAccess.Infrastructure.Persistence;
 
 namespace ReusableAccess.Infrastructure.Bundles;
 
-public sealed class UserBundlesQueryStore(
-    ApplicationDbContext dbContext) : IUserBundlesQueryStore
+public sealed class UserBundleQueries(
+    ApplicationDbContext dbContext) : IUserBundleQueries
 {
     public async Task<IReadOnlyList<AdminBundleDetails>?> GetForUserAsync(
         Guid userId,

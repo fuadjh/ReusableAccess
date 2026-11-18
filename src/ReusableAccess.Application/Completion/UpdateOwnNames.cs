@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using MediatR;
+using ReusableAccess.Application.Errors;
 using ReusableAccess.Application.Users;
 using ReusableAccess.Contracts;
 
@@ -10,7 +11,7 @@ public sealed record UpdateOwnNames(
     UpdateOwnNamesInput Input) : IRequest<bool>;
 
 public sealed class UpdateOwnNamesHandler(
-    IManagedUserReadStore store,
+    IManagedUserQueries store,
     ISender sender) : IRequestHandler<UpdateOwnNames, bool>
 {
     public async Task<bool> Handle(
@@ -25,7 +26,7 @@ public sealed class UpdateOwnNamesHandler(
                 errors,
                 true))
         {
-            throw new CompletionException(
+            throw new UseCaseException(
                 400,
                 string.Join(" ", errors.Select(x => x.ErrorMessage)));
         }
