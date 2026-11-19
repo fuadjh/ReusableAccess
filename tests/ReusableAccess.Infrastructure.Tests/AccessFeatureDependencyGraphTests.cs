@@ -147,8 +147,7 @@ public sealed class AccessFeatureDependencyGraphTests
         Assert.NotNull(
             provider.GetRequiredService<IRolePermissionsQueries>());
 
-        Assert.NotNull(
-            provider.GetRequiredService<IWorkItemsQueries>());
+       
 
         Assert.NotNull(
             provider.GetRequiredService<IUserSearchQueries>());

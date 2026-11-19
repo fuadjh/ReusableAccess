@@ -308,95 +308,12 @@ public sealed class CompletionStore(
             ?? throw new UseCaseException(404, "محدوده پیدا نشد.");
     }
 
-    public async Task<Guid> WriteWorkItemAsync(
-        Guid? id, string mode, string? code,
-        WorkItemInput input, CancellationToken ct)
-    {
-        var allowed = await Scope(mode, code, ct);
+   
+  
 
-        if (string.IsNullOrWhiteSpace(input.Title) ||
-            input.Title.Trim().Length > 200 ||
-            input.Status is not ("Open" or "Closed"))
-            throw new UseCaseException(400, "عنوان یا وضعیت معتبر نیست.");
-
-        WorkItem entity;
-
-        if (id.HasValue)
-        {
-            entity = await db.Set<WorkItem>().SingleOrDefaultAsync(
-                x => x.Id == id &&
-                     (!allowed.HasValue || x.ScopeId == allowed.Value), ct)
-                ?? throw new UseCaseException(404, "مورد کاری پیدا نشد.");
-
-            if (input.ScopeId != Guid.Empty && input.ScopeId != entity.ScopeId)
-                throw new UseCaseException(
-                    400, "انتقال مورد کاری بین محدوده‌ها مجاز نیست.");
-
-            entity.Update(input.Title, input.Status);
-        }
-        else
-        {
-            var target = allowed ?? input.ScopeId;
-
-            if (allowed.HasValue &&
-                input.ScopeId != Guid.Empty &&
-                input.ScopeId != allowed.Value)
-                throw new UseCaseException(403, "محدوده خارج از پروفایل فعال است.");
-
-            if (!await db.Set<AccessScope>().AnyAsync(x => x.Id == target, ct))
-                throw new UseCaseException(400, "محدودهٔ مقصد معتبر نیست.");
-
-            entity = new WorkItem(target, input.Title, input.Status);
-            db.Add(entity);
-        }
-
-        await db.SaveChangesAsync(ct);
-        return entity.Id;
-    }
-
-    public async Task<bool> DeleteWorkItemAsync(
-        Guid id, string mode, string? code, CancellationToken ct)
-    {
-        var allowed = await Scope(mode, code, ct);
-
-        var entity = await db.Set<WorkItem>().SingleOrDefaultAsync(
-            x => x.Id == id &&
-                 (!allowed.HasValue || x.ScopeId == allowed.Value), ct)
-            ?? throw new UseCaseException(404, "مورد کاری پیدا نشد.");
-
-        db.Remove(entity);
-        await db.SaveChangesAsync(ct);
-        return true;
-    }
-
-    public async Task<IReadOnlyList<WorkItemRow>> ListWorkItemsAsync(
-        string mode, string? code, CancellationToken ct)
-    {
-        var scope = await Scope(mode, code, ct);
-        var q = db.Set<WorkItem>().AsNoTracking();
-
-        if (scope.HasValue)
-            q = q.Where(x => x.ScopeId == scope.Value);
-
-        return await q.OrderBy(x => x.Title)
-            .Select(x => new WorkItemRow(x.Id, x.Title, x.Status))
-            .ToListAsync(ct);
-    }
-
-    public async Task<IReadOnlyList<ScopeRow>> WritableScopesAsync(
-        string mode, string? code, CancellationToken ct)
-    {
-        var scope = await Scope(mode, code, ct);
-        var q = db.Set<AccessScope>().AsNoTracking();
-
-        if (scope.HasValue)
-            q = q.Where(x => x.Id == scope.Value);
-
-        return await q.OrderBy(x => x.DisplayName)
-            .Select(x => new ScopeRow(
-                x.Id, x.Code, x.DisplayName, x.ParentScopeId))
-            .ToListAsync(ct);
-    }
+    
+    
+    
 
     public async Task<ReportSummary> ReportAsync(
         string mode, string? code, CancellationToken ct)

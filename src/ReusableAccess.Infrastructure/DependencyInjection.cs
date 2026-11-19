@@ -51,7 +51,7 @@ public static class DependencyInjection
         services.AddScoped<IScopeDeletionRepository, ScopeDeletionRepository>();
         services.AddScoped<IRolePermissionsRepository, RolePermissionsRepository>();
         services.AddScoped<IRolePermissionsQueries, RolePermissionsQueries>();
-        services.AddScoped<IWorkItemsQueries, WorkItemsQueries>();
+       
         services.AddScoped<IDevelopmentAccessSeeder, DevelopmentAccessSeeder>();
         services.AddScoped<IUserSearchQueries, UserSearchQueries>();
         services.AddScoped<IUserBundleQueries, UserBundleQueries>();

@@ -74,30 +74,7 @@ public sealed class CompletionWorkflowTests
             await f.Validator.IsCurrentAsync(user.Id, 0, default));
     }
 
-    [Fact]
-    public async Task Cross_scope_work_item_cannot_be_updated()
-    {
-        await using var f = await Fixture.Create();
-
-        var a = new AccessScope("A", "A");
-        var b = new AccessScope("B", "B");
-        var item = new WorkItem(b.Id, "B item", "Open");
-
-        f.Db.AddRange(a, b, item);
-        await f.Db.SaveChangesAsync();
-
-        // WorkItem هنوز در محدودهٔ Completion باقی مانده است.
-        var error = await Assert.ThrowsAsync<UseCaseException>(() =>
-            f.Store.WriteWorkItemAsync(
-                item.Id,
-                "selected",
-                "A",
-                new WorkItemInput(Guid.Empty, "changed", "Closed"),
-                default));
-
-        Assert.Equal(404, error.StatusCode);
-        Assert.Equal("B item", item.Title);
-    }
+   
 
     [Fact]
     public async Task Mfa_requires_verified_admin_channel()

@@ -49,7 +49,9 @@ public sealed class WorkItemsEndpointTests
             await response.Content.ReadAsStringAsync());
 
         var titles = GetTitles(json);
-
+        Assert.Equal(
+    "موارد کاری محدودهٔ فعال.",
+    json.RootElement.GetProperty("message").GetString());
         Assert.Equal(
             new[] { "پیگیری معاینه دوره‌ای" },
             titles);
@@ -218,6 +220,9 @@ public sealed class WorkItemsEndpointTests
 
         var titles = GetTitles(json);
 
+        Assert.Equal(
+    "موارد کاری همهٔ محدوده‌های مجاز.",
+    json.RootElement.GetProperty("message").GetString());
         Assert.Equal(2, titles.Length);
         Assert.Contains("پیگیری معاینه دوره‌ای", titles);
         Assert.Contains("بازرسی تجهیزات ایمنی", titles);
@@ -332,7 +337,8 @@ internal sealed class ApiTestHost : IAsyncDisposable
         builder.Services.AddScoped<IRoleRepository, RoleRepository>();
         builder.Services.AddScoped<IScopeQueries, ScopeQueries>();
         builder.Services.AddScoped<IScopeRepository, ScopeRepository>();
-        builder.Services.AddScoped<IWorkItemsQueries, WorkItemsQueries>();
+        builder.Services.AddScoped<IWorkItemScopeQueries, WorkItemScopeQueries>();
+        builder.Services.AddScoped<IWorkItemListQueries, WorkItemListQueries>();
         var application = builder.Build();
 
         application.UseAuthentication();

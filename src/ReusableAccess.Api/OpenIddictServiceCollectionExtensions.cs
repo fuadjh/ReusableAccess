@@ -5,25 +5,26 @@ namespace ReusableAccess.Api;
 
 public static class OpenIddictServiceCollectionExtensions
 {
-    // برای TestHostهای مستقل موجود حفظ می‌شود.
-    public static IServiceCollection AddReusableAccessOpenIddict(
-        this IServiceCollection services, string apiResource)
-        => Configure(services, apiResource, null, null);
+    private sealed class RegistrationMarker { }
 
     public static IServiceCollection AddReusableAccessOpenIddict(
         this IServiceCollection services,
         string apiResource,
         IConfiguration configuration,
         IHostEnvironment environment)
-        => Configure(services, apiResource, configuration, environment);
-
-    private static IServiceCollection Configure(
-        IServiceCollection services,
-        string apiResource,
-        IConfiguration? config,
-        IHostEnvironment? environment)
     {
+        ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(apiResource);
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(environment);
+
+        if (services.Any(d => d.ServiceType == typeof(RegistrationMarker)))
+        {
+            throw new InvalidOperationException(
+                "ReusableAccess OpenIddict is already registered.");
+        }
+
+        services.AddSingleton(new RegistrationMarker());
 
         services.AddOpenIddict()
             .AddServer(options =>
@@ -36,40 +37,20 @@ public static class OpenIddictServiceCollectionExtensions
 
                 options.RegisterScopes(
                     OpenIddictConstants.Scopes.Profile, "access_api");
-
                 options.RegisterResources(apiResource);
 
-                if (environment is null || environment.IsDevelopment())
+                if (environment.IsDevelopment())
                 {
                     options.AddDevelopmentEncryptionCertificate()
                         .AddDevelopmentSigningCertificate();
                 }
                 else
                 {
-                    X509Certificate2 Load(string kind)
-                    {
-                        var path = config![$"Certificates:{kind}:Path"]
-                            ?? throw new InvalidOperationException(
-                                $"Missing {kind} certificate path.");
+                    options.AddEncryptionCertificate(
+                        LoadCertificate(configuration, "Encryption"));
 
-                        var cert = X509CertificateLoader.LoadPkcs12FromFile(
-                            path,
-                            config[$"Certificates:{kind}:Password"],
-                            X509KeyStorageFlags.EphemeralKeySet);
-
-                        if (!cert.HasPrivateKey ||
-                            cert.NotBefore.ToUniversalTime() > DateTime.UtcNow ||
-                            cert.NotAfter.ToUniversalTime() <= DateTime.UtcNow)
-                        {
-                            throw new InvalidOperationException(
-                                $"Invalid {kind} certificate.");
-                        }
-
-                        return cert;
-                    }
-
-                    options.AddEncryptionCertificate(Load("Encryption"))
-                        .AddSigningCertificate(Load("Signing"));
+                    options.AddSigningCertificate(
+                        LoadCertificate(configuration, "Signing"));
                 }
 
                 options.UseAspNetCore()
@@ -83,5 +64,35 @@ public static class OpenIddictServiceCollectionExtensions
             });
 
         return services;
+    }
+
+    private static X509Certificate2 LoadCertificate(
+        IConfiguration configuration, string kind)
+    {
+        var path = configuration[$"Certificates:{kind}:Path"];
+
+        // عملگر ?? رشتهٔ خالی یا فقط فاصله را رد نمی‌کند.
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new InvalidOperationException(
+                $"Missing {kind} certificate path.");
+        }
+
+        var certificate = X509CertificateLoader.LoadPkcs12FromFile(
+            path,
+            configuration[$"Certificates:{kind}:Password"],
+            X509KeyStorageFlags.EphemeralKeySet);
+
+        var now = DateTime.UtcNow;
+        if (!certificate.HasPrivateKey ||
+            certificate.NotBefore.ToUniversalTime() > now ||
+            certificate.NotAfter.ToUniversalTime() <= now)
+        {
+            certificate.Dispose();
+            throw new InvalidOperationException(
+                $"Invalid {kind} certificate.");
+        }
+
+        return certificate;
     }
 }

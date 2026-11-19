@@ -1,7 +1,4 @@
-﻿using System.Globalization;
-using System.Security.Claims;
-using System.Threading.RateLimiting;
-using MediatR;
+﻿using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Diagnostics;
@@ -12,8 +9,12 @@ using OpenIddict.Validation.AspNetCore;
 using ReusableAccess.Application.Accounts;
 using ReusableAccess.Application.Completion;
 using ReusableAccess.Application.Errors;
+using ReusableAccess.Application.WorkItems;
 using ReusableAccess.Contracts;
 using ReusableAccess.Infrastructure.Authorization;
+using System.Globalization;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
 
 namespace ReusableAccess.Api.Completion;
 
@@ -279,14 +280,27 @@ public static class CompletionApiExtensions
                 return Results.Ok(new { data = true });
             });
 
+    
+
         app.MapGet("/api/console/work-items",
-            async (HttpContext c, ISender s, CancellationToken ct) =>
-                Results.Ok(new
-                {
-                    data = await s.Send(
-                        new ReadConsoleWorkItems(Mode(c), Scope(c)), ct)
-                }))
-            .RequireAuthorization("Permission:workitems.read");
+    async (HttpContext context, ISender sender, CancellationToken ct) =>
+    {
+        var items = await sender.Send(
+            new GetWorkItemListQuery(Mode(context), Scope(context)), ct);
+
+        return Results.Ok(new { data = items });
+    })
+    .RequireAuthorization("Permission:workitems.read");
+
+        app.MapGet("/api/console/writable-scopes",
+            async (HttpContext context, ISender sender, CancellationToken ct) =>
+            {
+                var scopes = await sender.Send(
+                    new GetWritableScopesQuery(Mode(context), Scope(context)), ct);
+
+                return Results.Ok(new { data = scopes });
+            })
+            .RequireAuthorization("Permission:workitems.create");
 
         app.MapGet("/api/console/writable-scopes",
             async (HttpContext c, ISender s, CancellationToken ct) =>
@@ -298,30 +312,36 @@ public static class CompletionApiExtensions
             .RequireAuthorization("Permission:workitems.create");
 
         app.MapPost("/api/work-items",
-            async (WorkItemInput input, HttpContext c, ISender s, CancellationToken ct) =>
-                Results.Ok(new
-                {
-                    data = await s.Send(
-                        new WriteWorkItem(null, Mode(c), Scope(c), input), ct)
-                }))
-            .RequireAuthorization("Permission:workitems.create");
+      async (WorkItemInput input, HttpContext context, ISender sender, CancellationToken ct) =>
+      {
+          var id = await sender.Send(
+              new SaveWorkItemCommand(null, Mode(context), Scope(context), input),
+              ct);
+
+          return Results.Ok(new { data = id });
+      })
+      .RequireAuthorization("Permission:workitems.create");
 
         app.MapPut("/api/work-items/{id:guid}",
-            async (Guid id, WorkItemInput input, HttpContext c, ISender s, CancellationToken ct) =>
-                Results.Ok(new
-                {
-                    data = await s.Send(
-                        new WriteWorkItem(id, Mode(c), Scope(c), input), ct)
-                }))
+            async (Guid id, WorkItemInput input, HttpContext context, ISender sender, CancellationToken ct) =>
+            {
+                var savedId = await sender.Send(
+                    new SaveWorkItemCommand(id, Mode(context), Scope(context), input),
+                    ct);
+
+                return Results.Ok(new { data = savedId });
+            })
             .RequireAuthorization("Permission:workitems.update");
 
         app.MapDelete("/api/work-items/{id:guid}",
-            async (Guid id, HttpContext c, ISender s, CancellationToken ct) =>
-                Results.Ok(new
-                {
-                    data = await s.Send(
-                        new RemoveWorkItem(id, Mode(c), Scope(c)), ct)
-                }))
+            async (Guid id, HttpContext context, ISender sender, CancellationToken ct) =>
+            {
+                var deleted = await sender.Send(
+                    new DeleteWorkItemCommand(id, Mode(context), Scope(context)),
+                    ct);
+
+                return Results.Ok(new { data = deleted });
+            })
             .RequireAuthorization("Permission:workitems.delete");
 
         app.MapGet("/api/reports/summary",

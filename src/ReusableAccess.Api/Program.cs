@@ -1,12 +1,12 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
+using OpenIddict.Abstractions;
+using OpenIddict.Server;
 using ReusableAccess.Api;
 using ReusableAccess.Api.Authorization;
 using ReusableAccess.Api.Completion;
-using ReusableAccess.Api.Endpoints;
 using ReusableAccess.Application;
 using ReusableAccess.Infrastructure;
-using ReusableAccess.Infrastructure.Authorization;
-using OpenIddict.Abstractions;
 
 const string apiResource = "urn:reusableaccess:api";
 
@@ -50,19 +50,25 @@ builder.Services
     .AddIdentityCookies();
 
 builder.Services.AddReusableAccessAuthorization();
-builder.Services.AddReusableAccessOpenIddict(apiResource);
 builder.Services.AddReusableAccessApiAuthorization();
 
 builder.Services.AddCompletionApi();
+builder.Services.AddCompletionDeployment(
+    builder.Configuration, builder.Environment);
 
-builder.Services.AddCompletionDeployment(builder.Configuration,builder.Environment);
-builder.Services.AddReusableAccessOpenIddict( apiResource, builder.Configuration, builder.Environment);
+builder.Services.AddReusableAccessOpenIddict(
+    apiResource, builder.Configuration, builder.Environment);
 
 var app = builder.Build();
 
+// تنظیمات نهایی OpenIddict را قبل از عملیات نوشتنی startup بررسی کن.
+_ = app.Services
+    .GetRequiredService<IOptionsMonitor<OpenIddictServerOptions>>()
+    .CurrentValue;
+
 await app.Services.BootstrapCompletionAdminAsync(app.Configuration);
-// همهٔ initializationهای زمان startup فقط از این نقطه اجرا می‌شوند.
-await app.InitializeReusableAccessAsync( clientSecret, apiResource);
+
+await app.InitializeReusableAccessAsync(clientSecret, apiResource);
 
 //==============
 if (app.Environment.IsDevelopment())
