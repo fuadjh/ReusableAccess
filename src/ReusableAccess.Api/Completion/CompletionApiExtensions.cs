@@ -292,15 +292,7 @@ public static class CompletionApiExtensions
     })
     .RequireAuthorization("Permission:workitems.read");
 
-        app.MapGet("/api/console/writable-scopes",
-            async (HttpContext context, ISender sender, CancellationToken ct) =>
-            {
-                var scopes = await sender.Send(
-                    new GetWritableScopesQuery(Mode(context), Scope(context)), ct);
-
-                return Results.Ok(new { data = scopes });
-            })
-            .RequireAuthorization("Permission:workitems.create");
+        
 
         app.MapGet("/api/console/writable-scopes",
             async (HttpContext c, ISender s, CancellationToken ct) =>
